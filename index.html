@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#091935" />
+    <meta name="description" content="ナビエをナビして、ストークスと8.8秒の渦へ。ナビエ–ストークス方程式をモチーフにした短編ブラウザゲーム。" />
+    <title>ナビエ、うしろ！｜8.8秒のナビエ–ストークス</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main id="game" aria-label="ナビエ、うしろ！">
+      <canvas id="fluid" aria-hidden="true"></canvas>
+
+      <div class="hud" id="hud" hidden>
+        <div class="timer-wrap">
+          <span>解かれるまで</span>
+          <strong id="timer">8.8</strong><span>秒</span>
+        </div>
+        <div class="vortex-wrap">
+          <div class="vortex-label"><span>うず</span><span id="vortexText">0%</span></div>
+          <div class="meter"><i id="vortexMeter"></i></div>
+        </div>
+        <button id="soundButton" class="sound" type="button" aria-label="音を切る">♪ ON</button>
+      </div>
+
+      <section class="screen intro is-active" id="intro" aria-labelledby="title">
+        <p class="news">2026.09.08　号外：あの方程式、解かれる</p>
+        <div class="equation" aria-label="ナビエストークス方程式">
+          <span class="muted">∂v/∂t＋</span><span class="navier">(v・</span><span class="stokes">∇)v</span><span class="muted">＝−∇p/ρ＋ν∇²v＋F</span>
+        </div>
+        <h1 id="title">ナビエ、うしろ！</h1>
+        <p class="dialogue"><b>ナビエ</b>「ぼくら、解かれちゃうって」<br /><b>ストークス</b>「じゃあ、いつも通りついてく」</p>
+        <div class="pair" aria-hidden="true">
+          <div class="glyph navier-glyph"><span>(v・</span><small>ナビエ</small></div>
+          <div class="plus">＋</div>
+          <div class="glyph stokes-glyph"><span>∇)v</span><small>ストークス</small></div>
+        </div>
+        <p class="howto">指でナビエをナビしよう。<br />ぐるぐる回るほど、なにかが起きる。</p>
+        <button class="primary" id="startButton" type="button">88時間を8.8秒で</button>
+        <p class="tiny">ドラッグ／マウス　・　失敗なし</p>
+      </section>
+
+      <div class="story-beat" id="storyBeat" aria-live="polite"></div>
+
+      <section class="screen ending" id="ending" aria-labelledby="endingTitle">
+        <p class="kicker">FINITE-TIME BLOWUP!</p>
+        <div class="infinity" aria-hidden="true">∞</div>
+        <h2 id="endingTitle">かいけつ！</h2>
+        <p id="endingCopy">ふたりは無限に速くなって、逃げきった。</p>
+        <p class="punchline">解かれたのに、ほどけないふたり。</p>
+        <div class="result">
+          <span>あなたの渦</span><strong id="resultScore">0%</strong>
+        </div>
+        <button class="primary" id="retryButton" type="button">もう一度ぐるぐる</button>
+        <p class="fact">※OpenAIが解決を発表。現在も数学界による検証の途中です。</p>
+      </section>
+
+      <noscript>このゲームにはJavaScriptが必要です。</noscript>
+    </main>
+    <script src="game.js"></script>
+  </body>
+</html>
