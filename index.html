@@ -4,90 +4,50 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#d8cfb8" />
-    <meta name="description" content="紙の中のナビエとストークスを、流れに沿って導く短編ブラウザゲーム。" />
-    <title>ナビエ–ストークス方程式に起きたこと</title>
+    <meta name="description" content="一枚の論文から抜け出した二つの項を追う、短編タイポグラフィ・ゲーム。" />
+    <title>∂v/∂t</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;500;700&family=Noto+Serif+JP:wght@400;600;700&family=Noto+Serif+Math&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600&family=Noto+Serif+Math&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main id="book" aria-label="ナビエ–ストークス方程式に起きたこと">
+    <main id="book" aria-label="数式の中を旅する短編ゲーム">
       <article class="paper">
-        <header class="paper-head">
-          <span>流体力学概論</span>
-          <span>第七章　非圧縮性流体</span>
-          <span>p. 193</span>
-        </header>
-
-        <div class="rule"></div>
-        <h1>ナビエ–ストークス方程式</h1>
-        <p class="lead">速度場 <i>v</i> の時間変化は、移流・圧力・粘性および外力によって記述される。</p>
-
-        <div class="printed-equation" aria-label="ナビエストークス方程式">
-          <span>∂v/∂t ＋ </span><strong class="term-navier">(v・∇)v</strong><span> ＝ −∇p/ρ ＋ </span><strong class="term-stokes">ν(∇²)v</strong><span> ＋ F</span>
-          <small class="constraint">∇・v ＝ 0</small>
+        <header class="running-head"><i>J. Fluid Mechanics</i><span>193</span></header>
+        <div class="opening-copy" aria-hidden="true">
+          <p><b>7. Motion of an incompressible viscous fluid</b></p>
+          <p>Let <i>v</i> denote the velocity field and <i>p</i> the pressure. Conservation of momentum gives</p>
         </div>
-
-        <section id="playfield" class="playfield" aria-label="ゲーム画面">
+        <div id="sourceEquation" class="source-equation" aria-label="ナビエ・ストークス方程式">
+          <span>∂v/∂t ＋ </span><strong id="sourceNavier">(v・∇)v</strong><span> ＝ −∇p/ρ ＋ </span><strong id="sourceStokes">ν(∇²)v</strong><span> ＋ F</span>
+          <small>∇・v ＝ 0</small>
+        </div>
+        <section id="world" class="world" aria-label="ナビエを指で動かし、ストークスと文字の世界を進む">
           <canvas id="flow" aria-hidden="true"></canvas>
-
-          <div id="navier" class="math-character navier" aria-label="ナビエ">
-            <span class="formula">(v・∇)v</span><span class="annotation">ナビエ</span>
-          </div>
-          <div id="stokes" class="math-character stokes" aria-label="ストークス">
-            <span class="formula">ν(∇²)v</span><span class="annotation">ストークス</span>
-          </div>
-
-          <div id="goal" class="goal" aria-hidden="true"><span>＝</span></div>
-          <div id="marginNote" class="margin-note" aria-live="polite"></div>
-          <div id="chapterCard" class="chapter-card" aria-live="polite"></div>
-
-          <div id="hud" class="hud" hidden>
-            <div><small>項</small><strong id="stageText">1 / 3</strong></div>
-            <div class="bond-wrap">
-              <div><small>ふたりの距離</small><span id="bondText">ちょうどいい</span></div>
-              <div class="bond-meter"><i id="bondMeter"></i></div>
-            </div>
-            <button id="soundButton" type="button" aria-label="音を切る">音　入</button>
-          </div>
-
-          <section id="prologue" class="movie is-active" aria-labelledby="movieTitle">
-            <p class="film-date">2026年9月8日</p>
-            <h2 id="movieTitle">ある方程式に、<br />解決を示す証明が発表された。</h2>
-            <p>そのとき、教科書の193ページでは——</p>
-            <button id="startButton" class="text-button" type="button">記録をひらく</button>
-          </section>
-
-          <section id="instruction" class="instruction" aria-live="polite">
-            <p id="instructionText"></p>
-          </section>
-
-          <section id="epilogue" class="movie epilogue" aria-labelledby="endingTitle">
-            <p class="film-date">記録終了</p>
-            <h2 id="endingTitle">二人の流れは、<br />有限時間で∞へ達した。</h2>
-            <p class="last-line">解かれても、ほどけなかった。</p>
-            <div class="fact-card">
-              <p>ナビエ–ストークス方程式は、水や空気などの流れを記述する。</p>
-              <p>OpenAIは2026年9月8日、滑らかな流れが有限時間で特異点を生じうるとする証明を発表した。</p>
-              <p>数学界とClay数学研究所による正式な検証は続いている。</p>
-            </div>
-            <p class="fiction">実際の数式と発表に着想を得たフィクションです。</p>
-            <div class="ending-actions">
-              <button id="retryButton" class="text-button" type="button">もう一度読む</button>
-              <a href="https://openai.com/index/navier-stokes-solution/" target="_blank" rel="noreferrer">発表を読む</a>
-            </div>
-          </section>
+          <div id="navier" class="character navier" aria-label="ナビエ、移流項">(v・∇)v</div>
+          <div id="stokes" class="character stokes" aria-label="ストークス、粘性項">ν(∇²)v</div>
+          <div id="touchHint" class="touch-hint" aria-hidden="true"></div>
+          <div id="infinity" class="infinity" aria-hidden="true">∞</div>
+          <div id="pageTurn" class="page-turn" aria-hidden="true"></div>
         </section>
-
-        <footer class="footnote">
-          <span>ν：動粘性係数</span>
-          <span>∇：ナブラ演算子</span>
-          <span>F：単位質量あたりの外力</span>
-        </footer>
+        <section id="epilogue" class="epilogue" aria-labelledby="endingTitle">
+          <div>
+            <h1 id="endingTitle">ナビエ–ストークス方程式</h1>
+            <p>水や空気など、流体の速度と圧力の変化を記述する。</p>
+            <p>19世紀、ナビエとストークスらの仕事から形づくられた。</p>
+            <p>2026年9月8日、OpenAIは三次元非圧縮性方程式に有限時間の特異点が存在することを示す証明を発表した。正式な検証は続いている。</p>
+            <small>実際の数式と発表に着想を得たフィクションです。</small>
+            <nav>
+              <button id="retry" type="button" aria-label="もう一度">↺</button>
+              <a href="https://openai.com/index/navier-stokes-solution/" target="_blank" rel="noreferrer" aria-label="OpenAIの発表を読む">↗</a>
+            </nav>
+          </div>
+        </section>
       </article>
-      <noscript>このページを動かすにはJavaScriptが必要です。</noscript>
+      <noscript>JavaScript is required.</noscript>
     </main>
     <script src="game.js"></script>
   </body>
 </html>
+
