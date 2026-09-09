@@ -1,53 +1,63 @@
 <!doctype html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#d8cfb8" />
-    <meta name="description" content="一枚の論文から抜け出した二つの項を追う、短編タイポグラフィ・ゲーム。" />
-    <title>∂v/∂t</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600&family=Noto+Serif+Math&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <main id="book" aria-label="数式の中を旅する短編ゲーム">
-      <article class="paper">
-        <header class="running-head"><i>J. Fluid Mechanics</i><span>193</span></header>
-        <div class="opening-copy" aria-hidden="true">
-          <p><b>7. Motion of an incompressible viscous fluid</b></p>
-          <p>Let <i>v</i> denote the velocity field and <i>p</i> the pressure. Conservation of momentum gives</p>
-        </div>
-        <div id="sourceEquation" class="source-equation" aria-label="ナビエ・ストークス方程式">
-          <span>∂v/∂t ＋ </span><strong id="sourceNavier">(v・∇)v</strong><span> ＝ −∇p/ρ ＋ </span><strong id="sourceStokes">ν(∇²)v</strong><span> ＋ F</span>
-          <small>∇・v ＝ 0</small>
-        </div>
-        <section id="world" class="world" aria-label="ナビエを指で動かし、ストークスと文字の世界を進む">
-          <canvas id="flow" aria-hidden="true"></canvas>
-          <div id="navier" class="character navier" aria-label="ナビエ、移流項">(v・∇)v</div>
-          <div id="stokes" class="character stokes" aria-label="ストークス、粘性項">ν(∇²)v</div>
-          <div id="touchHint" class="touch-hint" aria-hidden="true"></div>
-          <div id="infinity" class="infinity" aria-hidden="true">∞</div>
-          <div id="pageTurn" class="page-turn" aria-hidden="true"></div>
-        </section>
-        <section id="epilogue" class="epilogue" aria-labelledby="endingTitle">
-          <div>
-            <h1 id="endingTitle">ナビエ–ストークス方程式</h1>
-            <p>水や空気など、流体の速度と圧力の変化を記述する。</p>
-            <p>19世紀、ナビエとストークスらの仕事から形づくられた。</p>
-            <p>2026年9月8日、OpenAIは三次元非圧縮性方程式に有限時間の特異点が存在することを示す証明を発表した。正式な検証は続いている。</p>
-            <small>実際の数式と発表に着想を得たフィクションです。</small>
-            <nav>
-              <button id="retry" type="button" aria-label="もう一度">↺</button>
-              <a href="https://openai.com/index/navier-stokes-solution/" target="_blank" rel="noreferrer" aria-label="OpenAIの発表を読む">↗</a>
-            </nav>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#24180f" />
+  <meta name="description" content="古い流体力学書の一項が、ページの外を目指す短編映画。" />
+  <title>∂v/∂t</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif+JP:wght@400;600&family=Noto+Serif+Math&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="desk" aria-label="数式の短編映画">
+    <article id="book" class="book">
+      <section id="page" class="page">
+        <header><i>Elements of Fluid Dynamics</i><span id="folio">193</span></header>
+        <div id="print" class="print">
+          <h1>7. Motion of a viscous fluid</h1>
+          <div class="columns">
+            <p>Let <i>v</i> denote the velocity field and <i>p</i> the pressure. The motion follows from conservation of momentum.</p>
+            <p>These equations describe how the velocity, pressure, temperature, and density of a moving fluid are related.</p>
+            <p>The influence of internal friction is represented by the coefficient of kinematic viscosity, denoted by <i>ν</i>.</p>
+            <p>For an incompressible fluid of constant density, the equation may be written in vector notation as follows.</p>
           </div>
-        </section>
-      </article>
-      <noscript>JavaScript is required.</noscript>
-    </main>
-    <script src="game.js"></script>
-  </body>
+          <div id="equation" class="equation" aria-label="ナビエ・ストークス方程式">
+            <span>∂v/∂t + </span><strong id="sourceNavier">(v·∇)v</strong><span> = −∇p/ρ + </span><strong id="sourceStokes">ν(∇²)v</strong><span> + F</span>
+            <small>∇·v = 0</small>
+          </div>
+          <div class="lower-copy columns">
+            <p>The terms on the left describe local and convective acceleration. Pressure, diffusion and external force appear on the right.</p>
+            <p>Viscosity tends to smooth differences of velocity between neighbouring regions of the fluid.</p>
+          </div>
+          <footer>Adapted from NASA Glenn Research Center, “Navier–Stokes Equations”</footer>
+        </div>
+
+        <canvas id="field" aria-hidden="true"></canvas>
+        <div id="navier" class="term navier" aria-label="ナビエ、移流項">(v·∇)v</div>
+        <div id="stokes" class="term stokes" aria-label="ストークス、粘性項">ν(∇²)v</div>
+        <div id="light" class="light" aria-hidden="true"></div>
+        <div id="leaf" class="leaf" aria-hidden="true"></div>
+      </section>
+
+      <section id="epilogue" class="epilogue" aria-labelledby="endingTitle">
+        <div>
+          <h2 id="endingTitle">ナビエ–ストークス方程式</h2>
+          <p>水や空気など、流体の運動を記述する。</p>
+          <p>19世紀、クロード＝ルイ・ナビエと<br />ジョージ・ガブリエル・ストークスらが形づくった。</p>
+          <p>2026年9月8日、OpenAIは有限時間の特異点を示す証明を発表した。</p>
+          <small>実在する方程式と発表に着想を得たフィクションです。</small>
+          <nav>
+            <button id="retry" type="button" aria-label="もう一度">↺</button>
+            <a href="https://openai.com/index/navier-stokes-solution/" target="_blank" rel="noreferrer" aria-label="発表を読む">↗</a>
+          </nav>
+        </div>
+      </section>
+    </article>
+  </main>
+  <script src="game.js"></script>
+</body>
 </html>
 

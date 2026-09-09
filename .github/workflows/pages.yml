@@ -25,7 +25,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir dist
-          cp index.html style.css game.js dist/
+          cp index.html style.css game.js book-desk.webp dist/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
