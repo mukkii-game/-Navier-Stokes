@@ -1,331 +1,473 @@
 (() => {
   "use strict";
 
-  const canvas = document.querySelector("#fluid");
+  const paper = document.querySelector(".paper");
+  const playfield = document.querySelector("#playfield");
+  const canvas = document.querySelector("#flow");
   const ctx = canvas.getContext("2d");
-  const intro = document.querySelector("#intro");
-  const ending = document.querySelector("#ending");
+  const navierEl = document.querySelector("#navier");
+  const stokesEl = document.querySelector("#stokes");
+  const goalEl = document.querySelector("#goal");
   const hud = document.querySelector("#hud");
-  const timerEl = document.querySelector("#timer");
-  const meterEl = document.querySelector("#vortexMeter");
-  const vortexText = document.querySelector("#vortexText");
-  const storyBeat = document.querySelector("#storyBeat");
-  const resultScore = document.querySelector("#resultScore");
-  const endingCopy = document.querySelector("#endingCopy");
+  const stageText = document.querySelector("#stageText");
+  const bondText = document.querySelector("#bondText");
+  const bondMeter = document.querySelector("#bondMeter");
+  const marginNote = document.querySelector("#marginNote");
+  const chapterCard = document.querySelector("#chapterCard");
+  const instruction = document.querySelector("#instruction");
+  const instructionText = document.querySelector("#instructionText");
+  const prologue = document.querySelector("#prologue");
+  const epilogue = document.querySelector("#ending") || document.querySelector("#epilogue");
   const soundButton = document.querySelector("#soundButton");
+
+  const stages = [
+    {
+      title: "記録 1　移流項",
+      copy: "流れと同じ向きへ指を動かす。逆らうと、紙の中でも進みにくい。",
+      goal: [.82, .34],
+      flow: [.92, -.38],
+      viscosity: .28,
+      note: "矢印に沿うと速い"
+    },
+    {
+      title: "記録 2　粘性項",
+      copy: "ストークスは粘って遅れる。線が赤くなる前に、少し待って連れていく。",
+      goal: [.18, .72],
+      flow: [-.86, .51],
+      viscosity: .76,
+      note: "置いていかない"
+    },
+    {
+      title: "記録 3　非線形",
+      copy: "二人を中央へ。＝のまわりを、流れと同じ向きにぐるぐるなぞる。",
+      goal: [.52, .52],
+      flow: [0, 0],
+      viscosity: .46,
+      note: "渦を完成させる"
+    }
+  ];
 
   const state = {
     mode: "intro",
-    width: innerWidth,
-    height: innerHeight,
+    w: 0,
+    h: 0,
     dpr: 1,
-    start: 0,
+    stage: 0,
+    stageStarted: 0,
+    now: performance.now(),
     last: performance.now(),
+    hiddenAt: null,
     pointerDown: false,
-    pointer: { x: innerWidth * .5, y: innerHeight * .62 },
-    navier: { x: innerWidth * .43, y: innerHeight * .62, vx: 0, vy: 0 },
-    stokes: { x: innerWidth * .58, y: innerHeight * .64, vx: 0, vy: 0 },
+    pointer: { x: 0, y: 0 },
+    prevPointer: { x: 0, y: 0 },
+    navier: { x: 0, y: 0, vx: 0, vy: 0, angle: 0 },
+    stokes: { x: 0, y: 0, vx: 0, vy: 0, angle: 0 },
     trail: [],
-    droplets: [],
-    agents: [],
     vortex: 0,
-    rawVortex: 0,
-    lastAngle: null,
-    beat: -1,
-    blowup: 0,
+    vortexAngle: null,
+    blowupStarted: 0,
     sound: true,
-    audio: null
+    audio: null,
+    noteTimer: 0,
+    chapterTimer: 0
   };
 
   function resize() {
-    state.width = innerWidth;
-    state.height = innerHeight;
+    const rect = playfield.getBoundingClientRect();
+    state.w = rect.width;
+    state.h = rect.height;
     state.dpr = Math.min(devicePixelRatio || 1, 2);
-    canvas.width = Math.round(state.width * state.dpr);
-    canvas.height = Math.round(state.height * state.dpr);
-    canvas.style.width = `${state.width}px`;
-    canvas.style.height = `${state.height}px`;
+    canvas.width = Math.round(state.w * state.dpr);
+    canvas.height = Math.round(state.h * state.dpr);
     ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-    makeDroplets();
+    placeGoal();
   }
 
-  function makeDroplets() {
-    const count = Math.min(130, Math.round(state.width * state.height / 7000));
-    state.droplets = Array.from({ length: count }, (_, i) => ({
-      x: Math.random() * state.width,
-      y: Math.random() * state.height,
-      px: 0,
-      py: 0,
-      r: 1 + Math.random() * 2.3,
-      phase: i * .8 + Math.random() * 5
-    }));
+  function localPoint(event) {
+    const rect = playfield.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
+      y: Math.max(0, Math.min(rect.height, event.clientY - rect.top))
+    };
   }
 
-  function reset() {
-    state.mode = "play";
-    state.start = performance.now();
-    state.vortex = 0;
-    state.rawVortex = 0;
-    state.lastAngle = null;
-    state.beat = -1;
-    state.blowup = 0;
-    state.pointerDown = false;
-    state.navier = { x: state.width * .38, y: state.height * .62, vx: 0, vy: 0 };
-    state.stokes = { x: state.width * .58, y: state.height * .64, vx: 0, vy: 0 };
-    state.pointer = { x: state.navier.x, y: state.navier.y };
-    state.trail = Array.from({ length: 42 }, () => ({ x: state.navier.x, y: state.navier.y }));
-    state.agents = Array.from({ length: Math.min(110, Math.round(state.width / 4)) }, (_, i) => {
-      const edge = i % 4;
-      return {
-        x: edge === 0 ? -30 : edge === 1 ? state.width + 30 : Math.random() * state.width,
-        y: edge === 2 ? -30 : edge === 3 ? state.height + 30 : Math.random() * state.height,
-        s: .25 + Math.random() * .55,
-        phase: Math.random() * Math.PI * 2
-      };
-    });
-    intro.classList.remove("is-active");
-    ending.classList.remove("is-active");
+  function begin() {
+    ensureAudio();
+    prologue.classList.remove("is-active");
+    paper.classList.add("awake");
     hud.hidden = false;
-    beep(420, .08, "sine", .05);
-    showBeat("① 10,000のAIエージェントが<br>やってきた！");
+    instruction.classList.add("show");
+    state.mode = "play";
+    state.stage = 0;
+    state.vortex = 0;
+    const now = performance.now();
+    state.stageStarted = now;
+    state.last = now;
+    state.navier = { x: state.w * .18, y: state.h * .66, vx: 0, vy: 0, angle: 0 };
+    state.stokes = { x: state.w * .08, y: state.h * .73, vx: 0, vy: 0, angle: 0 };
+    state.pointer = { x: state.navier.x, y: state.navier.y };
+    state.prevPointer = { ...state.pointer };
+    state.trail = Array.from({ length: 100 }, () => ({ x: state.navier.x, y: state.navier.y }));
+    enterStage(0, true);
+    paperTick();
   }
 
-  function showBeat(html) {
-    storyBeat.classList.remove("show");
-    storyBeat.innerHTML = html;
-    void storyBeat.offsetWidth;
-    storyBeat.classList.add("show");
+  function enterStage(index, first = false) {
+    state.stage = index;
+    state.stageStarted = performance.now();
+    state.vortexAngle = null;
+    state.pointerDown = false;
+    const stage = stages[index];
+    stageText.textContent = `${index + 1} / 3`;
+    instructionText.textContent = stage.copy;
+    goalEl.classList.toggle("vortex", index === 2);
+    goalEl.querySelector("span").textContent = index === 2 ? "∂" : "＝";
+    placeGoal();
+    showChapter(`${stage.title}<br><small>${stage.note}</small>`, first ? 2300 : 1900);
+    beep(310 + index * 90, .08, "triangle", .035);
+  }
+
+  function placeGoal() {
+    if (!state.w || !state.h) return;
+    const [gx, gy] = stages[state.stage].goal;
+    goalEl.style.left = `${gx * 100}%`;
+    goalEl.style.top = `${gy * 100}%`;
+  }
+
+  function showChapter(html, duration) {
+    chapterCard.classList.remove("show");
+    chapterCard.innerHTML = html;
+    chapterCard.style.setProperty("--chapter-duration", `${duration}ms`);
+    void chapterCard.offsetWidth;
+    chapterCard.classList.add("show");
+    clearTimeout(state.chapterTimer);
+    state.chapterTimer = setTimeout(() => chapterCard.classList.remove("show"), duration);
+  }
+
+  function showNote(text, duration = 900) {
+    marginNote.textContent = text;
+    marginNote.classList.add("show");
+    clearTimeout(state.noteTimer);
+    state.noteTimer = setTimeout(() => marginNote.classList.remove("show"), duration);
   }
 
   function update(dt, now) {
-    const t = (now - state.start) / 1000;
-    const left = Math.max(0, 8.8 - t);
-    timerEl.textContent = left.toFixed(1);
-
-    const beats = [
-      [0, "① 10,000のAIエージェントが<br>やってきた！"],
-      [2.1, "② ナビエをナビして！<br>ストークスは勝手についてくる"],
-      [4.7, "③ ぐるぐる回って<br>流れをややこしくしろ！"],
-      [7.0, "④ 粘性より速く——<br>無限へ！"]
-    ];
-    let nextBeat = 0;
-    for (let i = 0; i < beats.length; i++) if (t >= beats[i][0]) nextBeat = i;
-    if (nextBeat !== state.beat) {
-      state.beat = nextBeat;
-      if (nextBeat > 0) showBeat(beats[nextBeat][1]);
+    if (state.mode === "blowup") {
+      updateBlowup(now);
+      return;
     }
+    if (state.mode !== "play") return;
 
-    const target = state.pointerDown ? state.pointer : {
-      x: state.width * .5 + Math.cos(t * 1.7) * Math.min(85, state.width * .18),
-      y: state.height * .61 + Math.sin(t * 1.45) * 45
-    };
-    const spring = state.pointerDown ? 12 : 2.7;
-    state.navier.vx += (target.x - state.navier.x) * spring * dt;
-    state.navier.vy += (target.y - state.navier.y) * spring * dt;
-    const damping = Math.pow(.0007, dt);
-    state.navier.vx *= damping;
-    state.navier.vy *= damping;
-    state.navier.x += state.navier.vx * dt;
-    state.navier.y += state.navier.vy * dt;
+    const stage = stages[state.stage];
+    const age = (now - state.stageStarted) / 1000;
+    const goal = { x: stage.goal[0] * state.w, y: stage.goal[1] * state.h };
+    let flow = normalized(stage.flow[0], stage.flow[1]);
 
-    state.navier.x = Math.max(38, Math.min(state.width - 38, state.navier.x));
-    state.navier.y = Math.max(100, Math.min(state.height - 42, state.navier.y));
-
-    state.trail.unshift({ x: state.navier.x, y: state.navier.y });
-    state.trail.length = Math.min(state.trail.length, 70);
-    const follow = state.trail[Math.min(32, state.trail.length - 1)];
-    state.stokes.vx += (follow.x - state.stokes.x) * 5.5 * dt;
-    state.stokes.vy += (follow.y - state.stokes.y) * 5.5 * dt;
-    state.stokes.vx *= Math.pow(.015, dt);
-    state.stokes.vy *= Math.pow(.015, dt);
-    state.stokes.x += state.stokes.vx * dt;
-    state.stokes.y += state.stokes.vy * dt;
+    if (state.stage === 2) {
+      const rx = state.navier.x - goal.x;
+      const ry = state.navier.y - goal.y;
+      flow = normalized(-ry, rx);
+    }
 
     if (state.pointerDown) {
-      const cx = state.width * .5;
-      const cy = state.height * .58;
-      const angle = Math.atan2(state.pointer.y - cy, state.pointer.x - cx);
-      if (state.lastAngle !== null) {
-        let diff = angle - state.lastAngle;
+      const dx = state.pointer.x - state.navier.x;
+      const dy = state.pointer.y - state.navier.y;
+      const desired = normalized(dx, dy);
+      const alignment = desired.x * flow.x + desired.y * flow.y;
+      const currentHelp = state.stage === 2 ? Math.max(.12, (alignment + 1) * .5) : .23 + Math.max(0, alignment) * .92;
+      const stiffness = 10.5 * currentHelp;
+      state.navier.vx += dx * stiffness * dt;
+      state.navier.vy += dy * stiffness * dt;
+
+      if (alignment < -.25 && Math.hypot(dx, dy) > 24) showNote("流れに逆らっている");
+    }
+
+    const drift = state.stage === 2 ? 8 : 23;
+    state.navier.vx += flow.x * drift * dt;
+    state.navier.vy += flow.y * drift * dt;
+    const nDamping = Math.pow(.002, dt);
+    state.navier.vx *= nDamping;
+    state.navier.vy *= nDamping;
+
+    const separation = distance(state.navier, state.stokes);
+    const maxDistance = state.stage === 1 ? Math.min(150, state.w * .34) : Math.min(185, state.w * .42);
+    if (separation > maxDistance) {
+      const pull = normalized(state.stokes.x - state.navier.x, state.stokes.y - state.navier.y);
+      state.navier.vx += pull.x * (separation - maxDistance) * 5.5 * dt;
+      state.navier.vy += pull.y * (separation - maxDistance) * 5.5 * dt;
+      navierEl.classList.add("waiting");
+      showNote("待って。ストークスが粘ってる");
+    } else {
+      navierEl.classList.remove("waiting");
+    }
+
+    state.navier.x += state.navier.vx * dt;
+    state.navier.y += state.navier.vy * dt;
+    clampCharacter(state.navier);
+
+    state.trail.unshift({ x: state.navier.x, y: state.navier.y });
+    if (state.trail.length > 140) state.trail.pop();
+    const lag = state.stage === 1 ? 42 : state.stage === 2 ? 27 : 18;
+    const follow = state.trail[Math.min(lag, state.trail.length - 1)];
+    const followPower = 7.2 - stage.viscosity * 4.8;
+    state.stokes.vx += (follow.x - state.stokes.x) * followPower * dt;
+    state.stokes.vy += (follow.y - state.stokes.y) * followPower * dt;
+    state.stokes.vx += flow.x * drift * (1 - stage.viscosity) * dt;
+    state.stokes.vy += flow.y * drift * (1 - stage.viscosity) * dt;
+    const sDamping = Math.pow(.012 + stage.viscosity * .02, dt);
+    state.stokes.vx *= sDamping;
+    state.stokes.vy *= sDamping;
+    state.stokes.x += state.stokes.vx * dt;
+    state.stokes.y += state.stokes.vy * dt;
+    clampCharacter(state.stokes);
+
+    if (age > 14 && state.stage < 2) {
+      const assist = Math.min(.8, (age - 14) * .08);
+      state.navier.x += (goal.x - state.navier.x) * assist * dt;
+      state.navier.y += (goal.y - state.navier.y) * assist * dt;
+      state.stokes.x += (goal.x - state.stokes.x) * assist * .75 * dt;
+      state.stokes.y += (goal.y - state.stokes.y) * assist * .75 * dt;
+    }
+
+    updateBond(maxDistance);
+
+    if (state.stage < 2) {
+      const reached = distance(state.navier, goal) < 72 && distance(state.stokes, goal) < 82;
+      if (reached) enterStage(state.stage + 1);
+    } else {
+      updateVortex(goal, dt, age);
+    }
+  }
+
+  function updateVortex(center, dt, age) {
+    const near = distance(state.navier, center) < Math.min(state.w, state.h) * .34;
+    if (state.pointerDown && near) {
+      const angle = Math.atan2(state.pointer.y - center.y, state.pointer.x - center.x);
+      if (state.vortexAngle !== null) {
+        let diff = angle - state.vortexAngle;
         if (diff > Math.PI) diff -= Math.PI * 2;
         if (diff < -Math.PI) diff += Math.PI * 2;
-        state.rawVortex += Math.abs(diff) * 4.2;
+        if (diff > 0) state.vortex += diff * 100 / (Math.PI * 2 * 1.45);
+        else if (diff < -.025) showNote("矢印と同じ向きへ");
       }
-      state.lastAngle = angle;
+      state.vortexAngle = angle;
     } else {
-      state.lastAngle = null;
-    }
-    state.vortex = Math.min(100, state.rawVortex + t * 3.4);
-    meterEl.style.width = `${state.vortex}%`;
-    vortexText.textContent = `${Math.round(state.vortex)}%`;
-
-    const cx = (state.navier.x + state.stokes.x) * .5;
-    const cy = (state.navier.y + state.stokes.y) * .5;
-    for (const d of state.droplets) {
-      const dx = d.x - cx;
-      const dy = d.y - cy;
-      const dist2 = dx * dx + dy * dy + 800;
-      const spin = (35 + state.vortex * 1.5) / dist2;
-      d.x += (-dy * spin + Math.sin(t + d.phase) * .05) * dt * 60;
-      d.y += (dx * spin - .12) * dt * 60;
-      if (d.x < -10) d.x = state.width + 10;
-      if (d.x > state.width + 10) d.x = -10;
-      if (d.y < -10) d.y = state.height + 10;
-      if (d.y > state.height + 10) d.y = -10;
+      state.vortexAngle = null;
     }
 
-    for (const a of state.agents) {
-      const dx = state.stokes.x - a.x;
-      const dy = state.stokes.y - a.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const swirl = state.vortex / 100;
-      a.x += ((dx / len) * a.s * 34 - (dy / len) * swirl * 28) * dt;
-      a.y += ((dy / len) * a.s * 34 + (dx / len) * swirl * 28) * dt;
-    }
+    if (age > 16) state.vortex += dt * 11;
+    state.vortex = Math.min(100, state.vortex);
+    stageText.textContent = `${Math.round(state.vortex)}%`;
+    bondText.textContent = state.vortex < 100 ? "渦を記述中" : "特異点";
+    bondMeter.style.width = `${Math.max(8, state.vortex)}%`;
+    bondMeter.style.backgroundColor = state.vortex > 75 ? "var(--red)" : "var(--blue)";
+    if (state.vortex >= 100) beginBlowup();
+  }
 
-    if (left <= 0) beginBlowup();
+  function updateBond(maxDistance) {
+    if (state.stage === 2) return;
+    const d = distance(state.navier, state.stokes);
+    const ratio = Math.min(100, d / maxDistance * 100);
+    bondMeter.style.width = `${Math.max(7, ratio)}%`;
+    if (ratio < 42) {
+      bondText.textContent = "近い";
+      bondMeter.style.backgroundColor = "var(--blue)";
+    } else if (ratio < 78) {
+      bondText.textContent = "ちょうどいい";
+      bondMeter.style.backgroundColor = "var(--blue)";
+    } else {
+      bondText.textContent = "離れすぎ";
+      bondMeter.style.backgroundColor = "var(--red)";
+    }
   }
 
   function beginBlowup() {
-    if (state.mode !== "play") return;
     state.mode = "blowup";
-    state.blowup = performance.now();
+    state.blowupStarted = performance.now();
     state.pointerDown = false;
-    showBeat("特異点、発生！");
+    instruction.classList.remove("show");
+    showChapter("有限時間で<br><strong>速度が発散する</strong>", 1900);
     sweepSound();
   }
 
-  function finish() {
-    state.mode = "ending";
-    hud.hidden = true;
-    resultScore.textContent = `${Math.round(state.vortex)}%`;
-    endingCopy.textContent = state.vortex >= 75
-      ? "あなたの渦で、ふたりは無限に速くなって逃げきった。"
-      : "残りの渦は、10,000のAIエージェントが手伝ってくれた。";
-    ending.classList.add("is-active");
-    beep(523, .12, "triangle", .06);
-    setTimeout(() => beep(659, .12, "triangle", .05), 120);
-    setTimeout(() => beep(784, .24, "triangle", .05), 240);
-  }
-
   function updateBlowup(now) {
-    const p = Math.min(1, (now - state.blowup) / 1450);
-    const cx = state.width * .5;
-    const cy = state.height * .57;
-    for (const d of state.droplets) {
-      const dx = d.x - cx;
-      const dy = d.y - cy;
-      const angle = .11 + p * .2;
-      const scale = .985 - p * .005;
-      d.x = cx + (dx * Math.cos(angle) - dy * Math.sin(angle)) * scale;
-      d.y = cy + (dx * Math.sin(angle) + dy * Math.cos(angle)) * scale;
-    }
-    state.navier.x += (cx - state.navier.x) * .055;
-    state.navier.y += (cy - state.navier.y) * .055;
-    state.stokes.x += (cx - state.stokes.x) * .052;
-    state.stokes.y += (cy - state.stokes.y) * .052;
+    const p = Math.min(1, (now - state.blowupStarted) / 2300);
+    const center = { x: state.w * .52, y: state.h * .52 };
+    const ease = 1 - Math.pow(1 - p, 3);
+    const turns = ease * Math.PI * 7;
+    const radius = (1 - ease) * Math.min(state.w, state.h) * .23 + 3;
+    state.navier.x = center.x + Math.cos(turns) * radius;
+    state.navier.y = center.y + Math.sin(turns) * radius * .62;
+    state.stokes.x = center.x + Math.cos(turns + Math.PI) * radius * .82;
+    state.stokes.y = center.y + Math.sin(turns + Math.PI) * radius * .52;
+    state.navier.angle = turns + Math.PI / 2;
+    state.stokes.angle = turns + Math.PI / 2;
     if (p >= 1) finish();
   }
 
+  function finish() {
+    if (state.mode === "ending") return;
+    state.mode = "ending";
+    hud.hidden = true;
+    goalEl.hidden = true;
+    navierEl.hidden = true;
+    stokesEl.hidden = true;
+    epilogue.classList.add("is-active");
+    endingChime();
+  }
+
+  function restart() {
+    epilogue.classList.remove("is-active");
+    goalEl.hidden = false;
+    navierEl.hidden = false;
+    stokesEl.hidden = false;
+    begin();
+  }
+
+  function clampCharacter(c) {
+    c.x = Math.max(54, Math.min(state.w - 54, c.x));
+    c.y = Math.max(70, Math.min(state.h - 54, c.y));
+    c.angle = Math.max(-.2, Math.min(.2, c.vx * .00045));
+  }
+
   function draw(now) {
-    const w = state.width;
-    const h = state.height;
-    const t = now / 1000;
-    ctx.clearRect(0, 0, w, h);
+    ctx.clearRect(0, 0, state.w, state.h);
+    if (state.mode === "intro" || state.mode === "ending") return;
+    const stage = stages[state.stage];
+    const center = { x: stage.goal[0] * state.w, y: stage.goal[1] * state.h };
 
-    const glow = ctx.createRadialGradient(w * .5, h * .58, 5, w * .5, h * .58, Math.max(w, h) * .62);
-    glow.addColorStop(0, `rgba(34, 182, 198, ${.09 + state.vortex * .0014})`);
-    glow.addColorStop(.42, "rgba(20, 72, 119, .13)");
-    glow.addColorStop(1, "rgba(2, 8, 25, 0)");
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, w, h);
+    if (state.stage < 2) drawParallelFlow(stage.flow);
+    else drawSpiralFlow(center, now);
+    drawTrail();
+    drawBond();
 
-    ctx.lineWidth = 1;
-    for (const d of state.droplets) {
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(116, 231, 225, ${.14 + .12 * Math.sin(t + d.phase)})`;
-      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    if (state.mode === "play" || state.mode === "blowup") {
+    if (state.mode === "blowup") {
+      const p = Math.min(1, (now - state.blowupStarted) / 2300);
       ctx.save();
-      ctx.setLineDash([3, 8]);
-      ctx.strokeStyle = "rgba(255, 225, 142, .34)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      state.trail.slice(0, 48).forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
-      ctx.stroke();
-      ctx.restore();
-
-      for (const a of state.agents) {
-        ctx.save();
-        ctx.translate(a.x, a.y);
-        ctx.rotate(t * .4 + a.phase);
-        ctx.globalAlpha = .24 + a.s * .35;
-        ctx.fillStyle = "#b7c9dc";
-        ctx.font = `${10 + a.s * 6}px ui-monospace, monospace`;
-        ctx.textAlign = "center";
-        ctx.fillText("AI", 0, 0);
-        ctx.restore();
-      }
-
-      drawCharacter(state.stokes, "∇)v", "ストークス", "#60e0d1", -1, t);
-      drawCharacter(state.navier, "(v・", "ナビエ", "#ffcb67", 1, t);
-
-      ctx.fillStyle = "rgba(255,255,255,.5)";
-      ctx.font = "700 11px system-ui, sans-serif";
+      ctx.globalAlpha = Math.max(0, (p - .55) * 2.2);
+      ctx.fillStyle = "#282720";
+      ctx.font = `${52 + p * 45}px "Noto Serif Math", serif`;
       ctx.textAlign = "center";
-      ctx.fillText("AI AGENTS × 10,000", w / 2, h - Math.max(20, parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sab")) || 20));
+      ctx.textBaseline = "middle";
+      ctx.fillText("∞", center.x, center.y);
+      ctx.restore();
     }
   }
 
-  function drawCharacter(c, glyph, name, color, tilt, t) {
+  function drawParallelFlow(vector) {
+    const f = normalized(vector[0], vector[1]);
+    const perp = { x: -f.y, y: f.x };
+    const length = Math.hypot(state.w, state.h) * 1.3;
     ctx.save();
-    ctx.translate(c.x, c.y + Math.sin(t * 5 + tilt) * 2);
-    const speed = Math.min(1, Math.hypot(c.vx, c.vy) / 600);
-    ctx.rotate(tilt * .035 + c.vx * .00015);
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 16 + speed * 18;
-    ctx.fillStyle = "rgba(8, 28, 55, .82)";
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 45, 37, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = color;
-    ctx.font = "700 31px Georgia, serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(glyph, 0, -2);
-    ctx.fillStyle = "rgba(255,255,255,.78)";
-    ctx.font = "700 10px system-ui, sans-serif";
-    ctx.fillText(name, 0, 50);
+    ctx.strokeStyle = "rgba(56, 72, 75, .22)";
+    ctx.fillStyle = "rgba(56, 72, 75, .31)";
+    ctx.lineWidth = 1;
+    for (let i = -4; i <= 5; i++) {
+      const ox = state.w * .5 + perp.x * i * 54;
+      const oy = state.h * .52 + perp.y * i * 54;
+      ctx.beginPath();
+      ctx.moveTo(ox - f.x * length, oy - f.y * length);
+      ctx.quadraticCurveTo(ox + perp.x * 9, oy + perp.y * 9, ox + f.x * length, oy + f.y * length);
+      ctx.stroke();
+      drawArrow(ox + f.x * 18, oy + f.y * 18, Math.atan2(f.y, f.x));
+    }
     ctx.restore();
   }
 
+  function drawSpiralFlow(center, now) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(120, 55, 45, .25)";
+    ctx.fillStyle = "rgba(120, 55, 45, .35)";
+    ctx.lineWidth = 1.1;
+    for (let arm = 0; arm < 3; arm++) {
+      ctx.beginPath();
+      for (let i = 0; i < 100; i++) {
+        const a = i * .095 + arm * Math.PI * 2 / 3 + now * .00004;
+        const r = 7 + i * 1.38;
+        const x = center.x + Math.cos(a) * r;
+        const y = center.y + Math.sin(a) * r * .62;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    drawArrow(center.x + 80, center.y + 2, Math.PI / 2);
+    ctx.restore();
+  }
+
+  function drawArrow(x, y, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(-2, -4);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(-2, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTrail() {
+    if (state.trail.length < 2) return;
+    ctx.save();
+    ctx.setLineDash([2, 7]);
+    ctx.strokeStyle = "rgba(126, 58, 47, .22)";
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    state.trail.slice(0, 70).forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBond() {
+    const d = distance(state.navier, state.stokes);
+    const max = state.stage === 1 ? Math.min(150, state.w * .34) : Math.min(185, state.w * .42);
+    ctx.save();
+    ctx.setLineDash([4, 5]);
+    ctx.strokeStyle = d > max * .78 ? "rgba(154, 63, 53, .72)" : "rgba(51, 77, 91, .42)";
+    ctx.lineWidth = d > max * .78 ? 1.7 : 1;
+    ctx.beginPath();
+    ctx.moveTo(state.navier.x, state.navier.y);
+    ctx.quadraticCurveTo((state.navier.x + state.stokes.x) / 2, (state.navier.y + state.stokes.y) / 2 + 12, state.stokes.x, state.stokes.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function renderCharacters(now) {
+    if (state.mode === "intro" || state.mode === "ending") return;
+    const bob = Math.sin(now * .006) * 1.5;
+    const scale = state.mode === "blowup" ? Math.max(.15, 1 - (now - state.blowupStarted) / 2700) : 1;
+    navierEl.style.transform = `translate(${state.navier.x}px, ${state.navier.y + bob}px) translate(-50%, -50%) rotate(${state.navier.angle}rad) scale(${scale})`;
+    stokesEl.style.transform = `translate(${state.stokes.x}px, ${state.stokes.y - bob}px) translate(-50%, -50%) rotate(${state.stokes.angle}rad) scale(${scale})`;
+  }
+
   function loop(now) {
-    const dt = Math.min(.033, (now - state.last) / 1000);
+    const dt = Math.min(.033, Math.max(0, (now - state.last) / 1000));
     state.last = now;
-    if (state.mode === "play") update(dt, now);
-    if (state.mode === "blowup") updateBlowup(now);
+    state.now = now;
+    update(dt, now);
     draw(now);
+    renderCharacters(now);
     requestAnimationFrame(loop);
   }
 
-  function setPointer(event) {
-    state.pointer.x = event.clientX;
-    state.pointer.y = event.clientY;
+  function normalized(x, y) {
+    const length = Math.hypot(x, y) || 1;
+    return { x: x / length, y: y / length };
   }
+
+  function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
   function ensureAudio() {
-    if (!state.audio) state.audio = new (window.AudioContext || window.webkitAudioContext)();
-    if (state.audio.state === "suspended") state.audio.resume();
+    if (!state.sound) return;
+    try {
+      if (!state.audio) state.audio = new (window.AudioContext || window.webkitAudioContext)();
+      if (state.audio.state === "suspended") state.audio.resume();
+    } catch (_) { /* Audio is optional. */ }
   }
 
-  function beep(frequency, duration, type = "sine", volume = .04) {
+  function beep(frequency, duration, type = "sine", volume = .025) {
     if (!state.sound) return;
     try {
       ensureAudio();
@@ -338,7 +480,12 @@
       osc.connect(gain).connect(state.audio.destination);
       osc.start();
       osc.stop(state.audio.currentTime + duration);
-    } catch (_) { /* Sound is optional. */ }
+    } catch (_) { /* Audio is optional. */ }
+  }
+
+  function paperTick() {
+    beep(235, .028, "square", .012);
+    setTimeout(() => beep(275, .025, "square", .01), 115);
   }
 
   function sweepSound() {
@@ -347,45 +494,56 @@
       ensureAudio();
       const osc = state.audio.createOscillator();
       const gain = state.audio.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(180, state.audio.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, state.audio.currentTime + 1.1);
-      gain.gain.setValueAtTime(.055, state.audio.currentTime);
-      gain.gain.exponentialRampToValueAtTime(.0001, state.audio.currentTime + 1.2);
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(110, state.audio.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(980, state.audio.currentTime + 1.65);
+      gain.gain.setValueAtTime(.032, state.audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.0001, state.audio.currentTime + 1.8);
       osc.connect(gain).connect(state.audio.destination);
       osc.start();
-      osc.stop(state.audio.currentTime + 1.2);
-    } catch (_) { /* Sound is optional. */ }
+      osc.stop(state.audio.currentTime + 1.8);
+    } catch (_) { /* Audio is optional. */ }
   }
 
-  document.querySelector("#startButton").addEventListener("click", () => {
-    ensureAudio();
-    reset();
-  });
-  document.querySelector("#retryButton").addEventListener("click", reset);
+  function endingChime() {
+    [196, 294, 392].forEach((f, i) => setTimeout(() => beep(f, .32, "sine", .024), i * 145));
+  }
+
+  document.querySelector("#startButton").addEventListener("click", begin);
+  document.querySelector("#retryButton").addEventListener("click", restart);
   soundButton.addEventListener("click", () => {
     state.sound = !state.sound;
-    soundButton.textContent = state.sound ? "♪ ON" : "♪ OFF";
+    soundButton.textContent = state.sound ? "音　ON" : "音　OFF";
     soundButton.setAttribute("aria-label", state.sound ? "音を切る" : "音を出す");
-    if (state.sound) beep(560, .08);
+    if (state.sound) paperTick();
   });
 
-  addEventListener("pointerdown", event => {
+  playfield.addEventListener("pointerdown", event => {
     if (state.mode !== "play") return;
     state.pointerDown = true;
-    setPointer(event);
-    canvas.setPointerCapture?.(event.pointerId);
-    beep(260 + state.vortex * 2, .035, "sine", .018);
+    state.pointer = localPoint(event);
+    state.prevPointer = { ...state.pointer };
+    playfield.setPointerCapture?.(event.pointerId);
+    beep(175 + state.stage * 35, .035, "triangle", .012);
   });
-  addEventListener("pointermove", event => {
+  playfield.addEventListener("pointermove", event => {
     if (!state.pointerDown || state.mode !== "play") return;
-    setPointer(event);
+    state.prevPointer = { ...state.pointer };
+    state.pointer = localPoint(event);
   });
-  addEventListener("pointerup", () => { state.pointerDown = false; });
-  addEventListener("pointercancel", () => { state.pointerDown = false; });
+  playfield.addEventListener("pointerup", () => { state.pointerDown = false; });
+  playfield.addEventListener("pointercancel", () => { state.pointerDown = false; });
+
   addEventListener("resize", resize);
-  addEventListener("visibilitychange", () => {
-    if (document.hidden && state.mode === "play") state.start += performance.now() - state.last;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) state.hiddenAt = performance.now();
+    else if (state.hiddenAt !== null) {
+      const paused = performance.now() - state.hiddenAt;
+      state.stageStarted += paused;
+      if (state.mode === "blowup") state.blowupStarted += paused;
+      state.hiddenAt = null;
+      state.last = performance.now();
+    }
   });
 
   resize();

@@ -3,60 +3,90 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#091935" />
-    <meta name="description" content="ナビエをナビして、ストークスと8.8秒の渦へ。ナビエ–ストークス方程式をモチーフにした短編ブラウザゲーム。" />
-    <title>ナビエ、うしろ！｜8.8秒のナビエ–ストークス</title>
+    <meta name="theme-color" content="#d8cfb8" />
+    <meta name="description" content="紙の中のナビエとストークスを、流れに沿って導く短編ブラウザゲーム。" />
+    <title>ナビエ–ストークス方程式に起きたこと</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;500;700&family=Noto+Serif+JP:wght@400;600;700&family=Noto+Serif+Math&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main id="game" aria-label="ナビエ、うしろ！">
-      <canvas id="fluid" aria-hidden="true"></canvas>
+    <main id="book" aria-label="ナビエ–ストークス方程式に起きたこと">
+      <article class="paper">
+        <header class="paper-head">
+          <span>流体力学概論</span>
+          <span>第七章　非圧縮性流体</span>
+          <span>p. 193</span>
+        </header>
 
-      <div class="hud" id="hud" hidden>
-        <div class="timer-wrap">
-          <span>解かれるまで</span>
-          <strong id="timer">8.8</strong><span>秒</span>
-        </div>
-        <div class="vortex-wrap">
-          <div class="vortex-label"><span>うず</span><span id="vortexText">0%</span></div>
-          <div class="meter"><i id="vortexMeter"></i></div>
-        </div>
-        <button id="soundButton" class="sound" type="button" aria-label="音を切る">♪ ON</button>
-      </div>
+        <div class="rule"></div>
+        <h1>ナビエ–ストークス方程式</h1>
+        <p class="lead">速度場 <i>v</i> の時間変化は、移流・圧力・粘性および外力によって記述される。</p>
 
-      <section class="screen intro is-active" id="intro" aria-labelledby="title">
-        <p class="news">2026.09.08　号外：あの方程式、解かれる</p>
-        <div class="equation" aria-label="ナビエストークス方程式">
-          <span class="muted">∂v/∂t＋</span><span class="navier">(v・</span><span class="stokes">∇)v</span><span class="muted">＝−∇p/ρ＋ν∇²v＋F</span>
+        <div class="printed-equation" aria-label="ナビエストークス方程式">
+          <span>∂v/∂t ＋ </span><strong class="term-navier">(v・∇)v</strong><span> ＝ −∇p/ρ ＋ </span><strong class="term-stokes">ν(∇²)v</strong><span> ＋ F</span>
+          <small class="constraint">∇・v ＝ 0</small>
         </div>
-        <h1 id="title">ナビエ、うしろ！</h1>
-        <p class="dialogue"><b>ナビエ</b>「ぼくら、解かれちゃうって」<br /><b>ストークス</b>「じゃあ、いつも通りついてく」</p>
-        <div class="pair" aria-hidden="true">
-          <div class="glyph navier-glyph"><span>(v・</span><small>ナビエ</small></div>
-          <div class="plus">＋</div>
-          <div class="glyph stokes-glyph"><span>∇)v</span><small>ストークス</small></div>
-        </div>
-        <p class="howto">指でナビエをナビしよう。<br />ぐるぐる回るほど、なにかが起きる。</p>
-        <button class="primary" id="startButton" type="button">88時間を8.8秒で</button>
-        <p class="tiny">ドラッグ／マウス　・　失敗なし</p>
-      </section>
 
-      <div class="story-beat" id="storyBeat" aria-live="polite"></div>
+        <section id="playfield" class="playfield" aria-label="ゲーム画面">
+          <canvas id="flow" aria-hidden="true"></canvas>
 
-      <section class="screen ending" id="ending" aria-labelledby="endingTitle">
-        <p class="kicker">FINITE-TIME BLOWUP!</p>
-        <div class="infinity" aria-hidden="true">∞</div>
-        <h2 id="endingTitle">かいけつ！</h2>
-        <p id="endingCopy">ふたりは無限に速くなって、逃げきった。</p>
-        <p class="punchline">解かれたのに、ほどけないふたり。</p>
-        <div class="result">
-          <span>あなたの渦</span><strong id="resultScore">0%</strong>
-        </div>
-        <button class="primary" id="retryButton" type="button">もう一度ぐるぐる</button>
-        <p class="fact">※OpenAIが解決を発表。現在も数学界による検証の途中です。</p>
-      </section>
+          <div id="navier" class="math-character navier" aria-label="ナビエ">
+            <span class="formula">(v・∇)v</span><span class="annotation">ナビエ</span>
+          </div>
+          <div id="stokes" class="math-character stokes" aria-label="ストークス">
+            <span class="formula">ν(∇²)v</span><span class="annotation">ストークス</span>
+          </div>
 
-      <noscript>このゲームにはJavaScriptが必要です。</noscript>
+          <div id="goal" class="goal" aria-hidden="true"><span>＝</span></div>
+          <div id="marginNote" class="margin-note" aria-live="polite"></div>
+          <div id="chapterCard" class="chapter-card" aria-live="polite"></div>
+
+          <div id="hud" class="hud" hidden>
+            <div><small>項</small><strong id="stageText">1 / 3</strong></div>
+            <div class="bond-wrap">
+              <div><small>ふたりの距離</small><span id="bondText">ちょうどいい</span></div>
+              <div class="bond-meter"><i id="bondMeter"></i></div>
+            </div>
+            <button id="soundButton" type="button" aria-label="音を切る">音　入</button>
+          </div>
+
+          <section id="prologue" class="movie is-active" aria-labelledby="movieTitle">
+            <p class="film-date">2026年9月8日</p>
+            <h2 id="movieTitle">ある方程式に、<br />解決を示す証明が発表された。</h2>
+            <p>そのとき、教科書の193ページでは——</p>
+            <button id="startButton" class="text-button" type="button">記録をひらく</button>
+          </section>
+
+          <section id="instruction" class="instruction" aria-live="polite">
+            <p id="instructionText"></p>
+          </section>
+
+          <section id="epilogue" class="movie epilogue" aria-labelledby="endingTitle">
+            <p class="film-date">記録終了</p>
+            <h2 id="endingTitle">二人の流れは、<br />有限時間で∞へ達した。</h2>
+            <p class="last-line">解かれても、ほどけなかった。</p>
+            <div class="fact-card">
+              <p>ナビエ–ストークス方程式は、水や空気などの流れを記述する。</p>
+              <p>OpenAIは2026年9月8日、滑らかな流れが有限時間で特異点を生じうるとする証明を発表した。</p>
+              <p>数学界とClay数学研究所による正式な検証は続いている。</p>
+            </div>
+            <p class="fiction">実際の数式と発表に着想を得たフィクションです。</p>
+            <div class="ending-actions">
+              <button id="retryButton" class="text-button" type="button">もう一度読む</button>
+              <a href="https://openai.com/index/navier-stokes-solution/" target="_blank" rel="noreferrer">発表を読む</a>
+            </div>
+          </section>
+        </section>
+
+        <footer class="footnote">
+          <span>ν：動粘性係数</span>
+          <span>∇：ナブラ演算子</span>
+          <span>F：単位質量あたりの外力</span>
+        </footer>
+      </article>
+      <noscript>このページを動かすにはJavaScriptが必要です。</noscript>
     </main>
     <script src="game.js"></script>
   </body>
