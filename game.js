@@ -3,7 +3,7 @@
   const canvas = document.querySelector("#field"), ctx = canvas.getContext("2d");
   const page = document.querySelector("#page"), leaf = document.querySelector("#leaf");
   const retry = document.querySelector("#retry"), status = document.querySelector("#status");
-  const W = 700, H = 950, SIZE = 25;
+  const W = 700, H = 950, SIZE = 37.5, GAP = 2;
   const FONT = '"EB Garamond", Georgia, serif', MATH = '"Noto Serif Math", serif';
   const chapters = [
     ["Momentum balance", [
@@ -60,49 +60,53 @@
     for(const char of text) {
       const width=ctx.measureText(char).width;
       w.glyphs.push({char,x:x+offset,y,width,dx:0,dy:0,vx:0,vy:0});
-      offset+=width;
+      offset+=width+GAP;
     }
-    s.words.push(w); return w;
+    w.w=Math.max(0,offset-GAP);s.words.push(w); return w;
   }
   function paragraph(text,x,y,width,bold=false) {
     let xx=x, yy=y; font(bold); const space=ctx.measureText(" ").width;
     for(const token of text.split(" ")) {
-      font(bold); const widthWord=ctx.measureText(token).width;
-      if(xx+widthWord>x+width && xx>x) {xx=x;yy+=33;}
+      font(bold); const widthWord=ctx.measureText(token).width+token.length*GAP;
+      if(xx+widthWord>x+width && xx>x) {xx=x;yy+=48;}
       const item=word(token,xx,yy,bold); xx+=item.w+space;
     }
-    return yy+33;
+    return yy+48;
   }
   function layout() {
     s.words=[]; s.walls=[];
     const [title,paragraphs]=chapters[s.index];
-    word("7."+(s.index+1)+"  "+title,40,103,true);
+    word("7."+(s.index+1),40,103,true);
     if(!s.index) {
-      paragraph("Let v denote velocity and p pressure.",40,145,606);
+      paragraph("Velocity v, pressure p.",40,156,606);
       let x=40;
+      let row=235;
       for(const [text,tag] of [["∂v/∂t + ",null],["(v·∇)v","n"],[" = −∇p/ρ + ",null],["ν(∇²)v","k"],[" + F",null]]) {
-        const w=word(text,x,224,false,true); w.actor=tag;
-        if(tag) {s[tag]={x:x+w.w/2,y:218};s[tag+"Origin"]={...s[tag]};}
-        x+=w.w;
+        if(text.startsWith(" =")){x=40;row=307;}
+        const w=word(text,x,row,false,true); w.actor=tag;
+        if(tag) {font(false,true);w.w=ctx.measureText(text).width;s[tag]={x:x+w.w/2,y:row-6};s[tag+"Origin"]={...s[tag]};}
+        x+=w.w+12;
       }
-      word("∇·v = 0",284,264,false,true);
-      paragraph("Conservation of momentum governs the motion of a fluid.",40,350,245);
-      paragraph("Viscous diffusion smooths differences in velocity.",402,540,240);
-      paragraph("The initial data specify the velocity field.",40,740,290);
+      word("∇·v = 0",284,390,false,true);
+      paragraph("Momentum flows through space.",40,495,270);
+      paragraph("Viscosity smooths motion.",395,650,265);
+      paragraph("Initial velocity.",40,830,400);
     } else {
       // Alternating islands of type leave generous, connected corridors.
-      const blocks=[[40,155,260],[393,340,250],[40,555,265],[385,748,265]];
-      blocks.forEach(([x,y,width],i)=>paragraph(paragraphs[i].split(" ").slice(0,15+s.index*2).join(" "),x,y,width,i===2));
-      word(s.index===1?"Re = UL/ν":"ω = ∇×v",390,670,false,true);
-      if(s.index>=3)paragraph("Transport and diffusion",265,450,180);
+      const blocks=[[40,165,280],[385,350,270],[40,575,280],[385,755,270]];
+      const labels=["Momentum and transport.","Pressure shapes the flow.","Viscous motion.","Energy and diffusion."];
+      blocks.forEach(([x,y,width],i)=>paragraph(labels[i],x,y,width,i===2));
+      word(s.index===1?"Re = UL/ν":"ω = ∇×v",350,590,false,true);
     }
     s.words=s.words.filter(w=>w.y<875);
-    if(s.index===4) word("Q.E.D.",560,885,true);
+    if(s.index===4) word("Q.E.D.",480,885,true);
   }
   function start(index=0) {
     s.index=index;s.phase=index?"travel":"still";s.time=0;s.awake=!!index;s.down=false;s.lost=0;s.spin=0;s.wake=0;s.keys.clear();
     retry.hidden=true;status.textContent="";layout();
-    if(index){s.n={x:82,y:305};s.k={x:40,y:305};}
+    if(index){s.n={x:235,y:290};s.k={x:83,y:290};}
+    s.particles=s.words.filter(w=>!w.actor).flatMap(w=>w.glyphs.filter(g=>g.char!==" "));
+    settle();
     s.trail=[];s.target={...s.n};
   }
   function density(b,dt,ux=0,uy=0) {
@@ -114,21 +118,70 @@
         const gx=g.x+g.dx+g.width/2,gy=g.y+g.dy-8;
         if(Math.abs(gx-b.x)<48&&Math.abs(gy-b.y)<22) {
           sum++;
-          if(dt){g.vx+=ux*dt*620;g.vy+=uy*dt*620;}
         }
       }
     }
     return sum;
   }
+  function actorBox(b) {
+    font(false,true);
+    const width=ctx.measureText(b===s.k?"ν(∇²)v":"(v·∇)v").width+8;
+    return {x:b.x-width/2,y:b.y-31,w:width,h:45,fixed:true};
+  }
+  function boxes() {
+    return [
+      ...s.particles.map(g=>({x:g.x+g.dx-1,y:g.y+g.dy-35,w:g.width+2,h:43,g})),
+      actorBox(s.n),actorBox(s.k)
+    ];
+  }
+  function overlaps(a,b) {
+    return Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x)>.015 &&
+      Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y)>.015;
+  }
+  function settle() {
+    // Project contacts before drawing. No frame is accepted with unresolved overlap.
+    const list=boxes();
+    const shift=(b,x,y)=>{
+      if(b.fixed)return;
+      b.x=clamp(b.x+x,20,680-b.w);b.y=clamp(b.y+y,76,900-b.h);
+      b.g.dx=b.x+1-b.g.x;b.g.dy=b.y+35-b.g.y;
+    };
+    for(let pass=0;pass<40;pass++) {
+      let contacts=0;
+      list.sort((a,b)=>a.x-b.x);
+      for(let i=0;i<list.length;i++) for(let j=i+1;j<list.length;j++){
+        const a=list[i],b=list[j];
+        // A conservative sweep; projection may change x during a pass.
+        if(!overlaps(a,b))continue;
+        contacts++;
+        if(a.fixed&&b.fixed)return false;
+        const px=Math.min(a.x+a.w-b.x,b.x+b.w-a.x)+.02;
+        const py=Math.min(a.y+a.h-b.y,b.y+b.h-a.y)+.02;
+        const sx=a.x+a.w/2<b.x+b.w/2?-1:1;
+        const sy=a.y+a.h/2<b.y+b.h/2?-1:1;
+        const portion=a.fixed?0:b.fixed?1:.5;
+        if(px<py){shift(a,sx*px*portion,0);shift(b,-sx*px*(1-portion),0);}
+        else{shift(a,0,sy*py*portion);shift(b,0,-sy*py*(1-portion));}
+      }
+      if(!contacts)return true;
+    }
+    return !list.some((a,i)=>list.slice(i+1).some(b=>overlaps(a,b)));
+  }
+  function snapshot(){return s.particles.map(g=>[g.dx,g.dy,g.vx,g.vy]);}
+  function restore(saved){s.particles.forEach((g,i)=>{[g.dx,g.dy,g.vx,g.vy]=saved[i];});}
   function move(b,target,dt,speed) {
     const d=distance(b,target);if(d<.2)return;
     const step=Math.min(d,speed*dt*(density(b,dt,(target.x-b.x)/d,(target.y-b.y)/d)>0?2/3:1));
     let x=b.x+(target.x-b.x)/d*step, y=b.y+(target.y-b.y)/d*step;
-    // Resolve separately so dragging down along a wall slides to its opening.
-    const hit=()=>false;
-    if(!hit(x,b.y))b.x=x;
-    if(!hit(b.x,y))b.y=y;
-    b.x=clamp(b.x,48,652);b.y=clamp(b.y,125,894);
+    const saved=snapshot(),old={...b};
+    const half=actorBox(b).w/2;
+    for(const fraction of [1,.5,.25]) {
+      restore(saved);
+      b.x=clamp(old.x+(x-old.x)*fraction,20+half,680-half);
+      b.y=clamp(old.y+(y-old.y)*fraction,125,875);
+      if(settle())return;
+    }
+    restore(saved);Object.assign(b,old);
   }
   function turn() {
     s.phase="turn";s.turn=0;s.down=false;leaf.classList.remove("turn");
@@ -136,7 +189,8 @@
   }
   function update(dt) {
     s.time+=dt;
-    for(const w of s.words) for(const g of w.glyphs) {
+    const saved=snapshot();
+    for(const g of (s.phase==="travel"?s.particles:[])) {
       const lastPage=s.index===4&&s.phase==="travel";
       if(lastPage&&s.spin>.1){
         const dx=g.x+g.dx-350,dy=g.y+g.dy-475;
@@ -147,8 +201,9 @@
       g.vx-=g.dx*restore*dt;g.vy-=g.dy*restore*dt;
       const drag=Math.exp(-dt*(lastPage?.7:4));
       g.vx*=drag;g.vy*=drag;g.dx+=g.vx*dt;g.dy+=g.vy*dt;
-      g.dx=clamp(g.dx,20-g.x,670-g.x-g.width);g.dy=clamp(g.dy,130-g.y,890-g.y);
+      g.dx=clamp(g.dx,21-g.x,679-g.x-g.width);g.dy=clamp(g.dy,111-g.y,892-g.y);
     }
+    if(s.phase==="travel"&&!settle())restore(saved);
     if(s.phase==="still") {if(s.time>3)s.phase="notice";return;}
     if(s.phase==="notice") {if(s.time>5.5)s.phase="travel";return;}
     if(s.phase==="turn") {s.turn+=dt;if(s.turn>1.35)start(s.index+1);return;}
@@ -183,24 +238,31 @@
       if(distance(s.n,s.k)<60)s.trail=[{...s.n}];
       while(s.trail.length>1&&distance(s.k,s.trail[0])<10)s.trail.shift();
       const goal=s.trail[0]||s.n;
-      if(distance(s.k,s.n)>60||s.trail.length>2)move(s.k,goal,dt,190);
+      if(distance(s.k,s.n)>130||s.trail.length>2)move(s.k,goal,dt,190);
       const d=distance(s.n,s.k);
       if(d>320&&s.time-s.wake>5)s.lost+=dt;else s.lost=Math.max(0,s.lost-dt*2);
       status.textContent=d>260?"ストークスが離れています。迎えに戻れます。":"";
       if(s.lost>7) {s.phase="failed";s.down=false;retry.hidden=false;status.textContent="二人は離れてしまいました。同じページからやり直せます。";}
-      if(s.n.x>=642&&s.k.x>560&&d<145) {
+      if(s.n.x>=675-actorBox(s.n).w/2&&s.k.x>450&&d<185) {
         if(s.index<4)turn();
         else if(s.spin>3.5){s.phase="vortex";s.final=0;s.fn={...s.n};s.fk={...s.k};s.down=false;}
       }
     }
   }
   function drawActor(b,text,alpha=1) {
+    ctx.save();
+    if(s.phase==="vortex"){
+      const t=s.final,r=Math.max(.01,1-t/12);
+      ctx.translate(350,475);ctx.rotate(t*(.3+t*.025));ctx.scale(r,r);ctx.translate(-350,-475);
+      b=b===s.k?s.fk:s.fn;
+    }
     font(false,true);ctx.fillStyle="#282117";ctx.globalAlpha=alpha;
     ctx.fillText(text,b.x-ctx.measureText(text).width/2,b.y+6);
+    ctx.restore();
   }
   function draw() {
     ctx.clearRect(0,0,W,H);ctx.save();ctx.fillStyle="#342b20";ctx.globalAlpha=.84;
-    font();ctx.fillText("Elements of Fluid Dynamics",40,48);ctx.fillText(String(193+s.index),626,48);
+    ctx.font="25px "+FONT;ctx.fillText("Elements of Fluid Dynamics",40,48);ctx.fillText(String(193+s.index),626,48);
     ctx.strokeStyle="#655744";ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(40,63);ctx.lineTo(660,63);ctx.stroke();
     if(s.phase==="end") {
       wordEnd();ctx.restore();return;
@@ -223,9 +285,9 @@
     }
     if(s.phase!=="still") {
       const pulse=s.phase==="notice"?Math.sin((s.time-3)*Math.PI)*.08:0;
-      drawActor({...s.n,y:s.n.y-pulse*9},"(v·∇)v",.87+pulse);
+      drawActor(s.n,"(v·∇)v",.87+pulse);
     }
-    if(s.awake)drawActor({...s.k,y:s.k.y-Math.sin(clamp(s.time-s.wake,0,2)*Math.PI)*2},"ν(∇²)v",
+    if(s.awake)drawActor(s.k,"ν(∇²)v",
       s.phase==="failed"?.22:Math.max(.3,Math.min(.94,.5+(s.time-s.wake)*.22)-s.lost*.075));
     ctx.globalAlpha=.55;font();ctx.fillText("§ 7   /   "+(s.index+1),40,920);
     if(vortex) {
@@ -243,11 +305,7 @@
     ctx.fillStyle="#30291f";font(true);ctx.fillText("7.6  Afterword",40,103);
     const lines=[
       "The Navier–Stokes equations describe the motion of fluids.",
-      "They developed from nineteenth-century work by",
-      "Claude-Louis Navier, George Gabriel Stokes and others.",
-      "",
-      "Transport, pressure and viscosity belong to one balance.",
-      "The two terms in this story belong to that equation.",
+      "Navier and Stokes developed them in the nineteenth century.",
       "",
       "An imagined journey through a real mathematical idea.",
       "",
@@ -257,10 +315,10 @@
     for(const line of lines){
       let row="";
       for(const token of line.split(" ")){
-        if(ctx.measureText(row+token).width>600){ctx.fillText(row,40,y);y+=33;row="";}
+        if(ctx.measureText(row+token).width>600){ctx.fillText(row,40,y);y+=48;row="";}
         row+=token+" ";
       }
-      ctx.fillText(row,40,y);y+=37;
+      ctx.fillText(row,40,y);y+=50;
     }
     ctx.globalAlpha=.55;ctx.fillText("An original typographic short film.",40,860);
   }
@@ -290,6 +348,6 @@
   let last=performance.now();
   function frame(now){const dt=Math.min(.035,(now-last)/1000);last=now;if(!s.hidden){update(dt);draw();}requestAnimationFrame(frame);}
   addEventListener("resize",resize);
-  Promise.all([document.fonts.load("25px "+FONT),document.fonts.load("25px "+MATH)])
+  Promise.all([document.fonts.load(SIZE+"px "+FONT),document.fonts.load("600 "+SIZE+"px "+FONT),document.fonts.load(SIZE+"px "+MATH)])
     .catch(()=>{}).then(()=>{resize();start();requestAnimationFrame(frame);});
 })();

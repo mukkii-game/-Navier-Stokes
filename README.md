@@ -1,15 +1,11 @@
 # ∂v/∂t
 
-Five pages of an interactive typographic film.
+Five-page typographic journey. Mouse/touch moves continuously toward the pointer; keyboard arrows and WASD also work.
 
-Hold a pointer to move continuously toward it, or use arrow keys / WASD. Movement never teleports. Clear space is full speed; touching print reduces speed to two thirds. Every printed character is an individual lightweight particle. Text islands form broad corridors but can all be pushed through.
+Print uses 37.5 logical pixels, 1.5 times the previous version, with reflowed short text islands and a two-line opening equation. Glyphs have individual collision rectangles and a two-pixel typesetting gap.
 
-Navier wakes first. Stokes wakes only near the first page's right margin, with an ink-darkening transition. Both must reach the right margin to turn the page.
+Movement projects letter contacts immediately, including letter-to-letter and letter-to-character separation. Unresolved contacts roll back the proposed movement and retry smaller steps; ink cannot be overtaken by the player. Spring return and final-page inertia use the same constraints. The final vortex transforms the characters and letters together.
 
-On the final page, pushed characters retain inertia. Circling Navier around the page centre builds angular motion that spreads and accelerates. After building rotation, bring both characters to the right margin to enter the infinity ending. The afterword is drawn directly on the same paper canvas.
+Stokes wakes near the first right margin. Both characters reach the margin to turn each page; circling on the last page builds the final vortex. The afterword uses the same paper canvas.
 
-Body and character type increased from 18 to 25 logical pixels. Existing book artwork retained. Fonts are explicitly loaded before canvas layout.
-
-Validation: JavaScript syntax and logic checks for the two-thirds speed ratio, individual glyph impulses, delayed Stokes awakening and player-rotation-gated finale.
-
-Original educational prose and artistic mechanics; not a numerical fluid simulation or a reproduction of a published paper.
+Validation: JavaScript syntax; five initial layouts and 800 simulated pushing/restoration frames with no intersecting collision rectangles. This is a logic check, not a browser screenshot or device performance test.
