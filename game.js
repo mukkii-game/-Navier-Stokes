@@ -1,346 +1,256 @@
 (() => {
   "use strict";
-
-  const page = document.querySelector("#page");
-  const book = document.querySelector("#book");
-  const canvas = document.querySelector("#field");
-  const ctx = canvas.getContext("2d");
-  const equation = document.querySelector("#equation");
-  const sourceNavier = document.querySelector("#sourceNavier");
-  const sourceStokes = document.querySelector("#sourceStokes");
-  const navierEl = document.querySelector("#navier");
-  const stokesEl = document.querySelector("#stokes");
-  const print = document.querySelector("#print");
-  const folio = document.querySelector("#folio");
-  const leaf = document.querySelector("#leaf");
-  const light = document.querySelector("#light");
-  const epilogue = document.querySelector("#epilogue");
-
-  const fragments = [
-    "∂u/∂t", "∇·v = 0", "ρ(v·∇)v", "−∂p/∂x", "ν∇²u", "ω = ∇×v",
-    "Re = UL/ν", "0 < t < T", "u₁  u₂  u₃", "∫Ω |v|² dx", "lim t→T",
-    "THEOREM", "LEMMA", "BOUNDARY", "PRESSURE", "DIVERGENCE",
-    "α  β  γ", "x  y  z", "C∞(Ω)", "Q.E.D.", "1  1  2  3  5  8"
+  const canvas = document.querySelector("#field"), ctx = canvas.getContext("2d");
+  const page = document.querySelector("#page"), leaf = document.querySelector("#leaf");
+  const retry = document.querySelector("#retry"), status = document.querySelector("#status");
+  const W = 700, H = 950, SIZE = 18;
+  const FONT = '"EB Garamond", Georgia, serif', MATH = '"Noto Serif Math", serif';
+  const chapters = [
+    ["Momentum balance", [
+      "Consider an incompressible Newtonian fluid of constant density. Let v denote its velocity field and let p denote the pressure. The force F is measured per unit mass.",
+      "The material derivative accounts for changes observed while moving with a fluid parcel. It combines local acceleration with transport through a nonuniform velocity field.",
+      "The pressure gradient and viscous diffusion contribute to the balance of momentum. The coefficient nu is the kinematic viscosity.",
+      "An initial velocity and suitable boundary conditions complete the formulation. The divergence constraint expresses conservation of volume."
+    ]],
+    ["Transport and diffusion", [
+      "Transport carries momentum along trajectories of the velocity field. Since the same velocity determines both transport and the transported quantity, this contribution is nonlinear.",
+      "Viscous diffusion acts to reduce spatial differences in velocity. Its relative importance depends on the length and velocity scales chosen for the flow.",
+      "The Reynolds number compares inertial transport with viscous effects. A narrow region can support large gradients even when variations across the whole domain are modest.",
+      "At a stationary solid boundary the no-slip condition fixes the fluid velocity. Away from this boundary the interior motion is determined by the momentum equation.",
+      "Local estimates must be consistent with the constraint on divergence. Pressure couples motion in different parts of the domain."
+    ]],
+    ["Boundary conditions", [
+      "A bounded domain requires conditions on its boundary. In a periodic domain opposite faces are identified, while in an unbounded domain conditions at infinity replace the wall.",
+      "The choice of domain affects the available estimates. Integrating by parts transfers derivatives and may introduce boundary terms that must be retained or shown to vanish.",
+      "For a smooth divergence-free velocity field, the transport term makes no net contribution to the kinetic energy balance under suitable boundary conditions.",
+      "Viscosity dissipates kinetic energy through velocity gradients. An external force may supply energy, and the balance includes the work done by that force.",
+      "Control of total energy does not by itself control every spatial derivative. More detailed information is needed to describe the smallest scales of motion.",
+      "One therefore distinguishes the existence of weak solutions from the regularity of a classical solution."
+    ]],
+    ["Vorticity and regularity", [
+      "Vorticity is the curl of the velocity field. In three dimensions the stretching of vortex lines provides a mechanism for changing its magnitude.",
+      "Diffusion competes with stretching and transport. These processes are coupled rather than independent, since the velocity and vorticity determine one another through differential relations.",
+      "Regularity estimates seek bounds that prevent derivatives from becoming unbounded. Their strength depends on the norms in which the solution is measured.",
+      "A smooth initial field may contain motion on several length scales. Nonlinear interactions transfer information between these scales as the solution evolves.",
+      "An a priori estimate is established before assuming the desired long-time behaviour. Such estimates form an essential part of many existence arguments.",
+      "The energy inequality is a starting point. Additional control is required to justify stronger conclusions about smoothness and uniqueness.",
+      "Any limiting procedure must preserve the equation and the divergence constraint. Convergence of the nonlinear term demands particular care."
+    ]],
+    ["Concluding remarks", [
+      "The distinction between a formal calculation and a proof is crucial. Every limiting step must be justified, and every estimate must hold under the stated assumptions.",
+      "A candidate singularity concerns the mathematical model. It does not assert that a physical fluid can attain an infinite speed.",
+      "The continuum description represents matter through fields rather than individual molecules. The range of validity of this description is separate from the mathematical question of regularity.",
+      "A conclusion must specify the domain, the initial data and the external force. Changing any of these assumptions may change the problem under consideration.",
+      "Finite energy and bounded velocity are different requirements. Concentration on smaller sets can make this distinction significant.",
+      "The geometry of a flow and the estimates used to study it must remain compatible throughout the argument.",
+      "The equations join transport, pressure and diffusion in a single balance. Their interaction is the source of both their usefulness and their difficulty.",
+      "This completes the discussion of the formulation. The final passage is left open."
+    ]]
   ];
-
-  const pages = [
-    {
-      folio: "193",
-      title: "7. Motion of a viscous fluid",
-      paragraphs: [
-        "Let v denote the velocity field and p the pressure. The motion follows from conservation of momentum.",
-        "These equations describe how the velocity, pressure, temperature, and density of a moving fluid are related.",
-        "The influence of internal friction is represented by the coefficient of kinematic viscosity, denoted by ν.",
-        "For an incompressible fluid of constant density, the equation may be written in vector notation as follows.",
-        "The terms on the left describe local and convective acceleration. Pressure, diffusion and external force appear on the right.",
-        "Viscosity tends to smooth differences of velocity between neighbouring regions of the fluid."
-      ]
-    },
-    {
-      folio: "194",
-      title: "7.1 Transport and diffusion",
-      paragraphs: [
-        "A material element carries momentum from one region to another. The transport is nonlinear because the velocity determines its own direction of motion.",
-        "Diffusion acts across neighbouring layers. Its influence depends upon the scale of variation and the value of ν.",
-        "At large Reynolds number the motion may contain structures of many different sizes.",
-        "The coupled equations must be considered together with initial and boundary conditions.",
-        "Close trajectories may separate; distant parts of the field may be brought together by the flow.",
-        "No individual symbol is aware of the field through which it passes."
-      ]
-    },
-    {
-      folio: "195",
-      title: "7.2 Vorticity",
-      paragraphs: [
-        "Vorticity describes local rotation. Stretching can intensify a vortex while viscosity works to diffuse it.",
-        "The geometry becomes increasingly fine. Large and small scales remain joined by the same equation.",
-        "Suppose that smooth motion is given at the initial time.",
-        "Can every derivative remain bounded for all later time?",
-        "The question concerns the equation itself, beyond any particular experiment.",
-        "The following page has not yet been written."
-      ]
+  const s = { phase:"still", time:0, index:0, words:[], walls:[], down:false,
+    target:{x:130,y:210}, n:{x:180,y:210}, k:{x:459,y:210}, awake:false,
+    trail:[], lost:0, turn:0, final:0, hidden:false };
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  function font(bold=false, math=false) { ctx.font=(bold?"600 ":"")+SIZE+"px "+(math?MATH:FONT); }
+  function word(text,x,y,bold=false,math=false,hard=false) {
+    font(bold,math);
+    const w={text,x,y,w:ctx.measureText(text).width,bold,math,hard,dx:0,dy:0};
+    s.words.push(w); return w;
+  }
+  function paragraph(text,x,y,width,bold=false) {
+    let xx=x, yy=y; font(bold); const space=ctx.measureText(" ").width;
+    for(const token of text.split(" ")) {
+      font(bold); const widthWord=ctx.measureText(token).width;
+      if(xx+widthWord>x+width && xx>x) {xx=x;yy+=24;}
+      const item=word(token,xx,yy,bold); xx+=item.w+space;
     }
-  ];
-
-  const state = {
-    w: 0, h: 0, dpr: 1, last: performance.now(), born: performance.now(),
-    phase: "still", pageNo: 0, journey: 0, turning: false,
-    pointerDown: false, touched: false, pointer: { x: 0, y: 0 },
-    navier: { x: 0, y: 0, vx: 0, vy: 0, r: 0 },
-    stokes: { x: 0, y: 0, vx: 0, vy: 0, r: 0 },
-    stokesAwake: false, trail: [], finalAt: 0, theta: 0, released: false
-  };
-
-  function resize() {
-    const r = page.getBoundingClientRect();
-    state.w = r.width; state.h = r.height; state.dpr = Math.min(devicePixelRatio || 1, 2);
-    canvas.width = Math.round(r.width * state.dpr); canvas.height = Math.round(r.height * state.dpr);
-    ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-    if (state.phase === "still") placeAtSource();
+    return yy+24;
   }
-
-  function centerOf(el) {
-    const pr = page.getBoundingClientRect(), r = el.getBoundingClientRect();
-    return { x: r.left - pr.left + r.width / 2, y: r.top - pr.top + r.height / 2 };
-  }
-
-  function placeAtSource() {
-    const n = centerOf(sourceNavier), s = centerOf(sourceStokes);
-    Object.assign(state.navier, n, { vx: 0, vy: 0 });
-    Object.assign(state.stokes, s, { vx: 0, vy: 0 });
-    position(navierEl, state.navier); position(stokesEl, state.stokes);
-  }
-
-  function notice() {
-    if (state.phase !== "still") return;
-    placeAtSource();
-    navierEl.classList.add("visible", "noticing");
-    sourceNavier.style.opacity = ".18";
-    state.phase = "notice";
-    state.born = performance.now();
-    setTimeout(depart, 3800);
-  }
-
-  function depart() {
-    if (state.phase !== "notice") return;
-    navierEl.classList.remove("noticing");
-    equation.classList.add("navier-gone");
-    page.classList.add("in-motion");
-    state.phase = "travel";
-    state.born = performance.now();
-    state.pointer = { x: state.navier.x, y: state.navier.y };
-    state.trail = Array.from({ length: 150 }, () => ({ x: state.navier.x, y: state.navier.y }));
-  }
-
-  function wakeStokes() {
-    if (state.stokesAwake) return;
-    state.stokesAwake = true;
-    equation.classList.add("stokes-gone");
-    stokesEl.classList.add("visible", "noticing");
-    setTimeout(() => stokesEl.classList.remove("noticing"), 2300);
-  }
-
-  function localPoint(event) {
-    const r = page.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(r.width, event.clientX - r.left)),
-      y: Math.max(0, Math.min(r.height, event.clientY - r.top))
-    };
-  }
-
-  function startPointer(event) {
-    if (state.phase !== "travel" && state.phase !== "final") return;
-    state.pointerDown = true; state.touched = true; state.pointer = localPoint(event);
-    navierEl.classList.add("touching");
-    page.setPointerCapture?.(event.pointerId);
-  }
-
-  function endPointer() {
-    state.pointerDown = false; navierEl.classList.remove("touching");
-  }
-
-  function density() {
-    return state.pageNo === 0 ? .55 : state.pageNo === 1 ? 1 : 1.42;
-  }
-
-  function currentAt(x, y, now) {
-    const p = state.pageNo;
-    const t = now * .00017;
-    const viscosity = p === 0 ? .35 : p === 1 ? .76 : .92;
-    return {
-      x: (12 + 18 * Math.sin(y * .018 + t * (p + 1))) / viscosity,
-      y: (8 + 16 * Math.sin(x * .014 - t * 1.7)) / viscosity
-    };
-  }
-
-  function obstacles(now) {
-    const result = [], count = Math.round((state.w * state.h) / 6200 * density());
-    for (let i = 0; i < count; i++) {
-      const seed = i * 73 + state.pageNo * 109;
-      const drift = state.pageNo === 2 ? Math.sin(now * .00022 + seed) * 4 : 0;
-      const x = 8 + ((seed * 17) % Math.max(40, state.w - 80)) + drift;
-      const y = 42 + ((seed * 31 + state.pageNo * 47) % Math.max(80, state.h - 90));
-      const size = (state.pageNo === 2 && i % 7 === 0 ? 25 : 8) + seed % (state.pageNo === 2 ? 24 : 9);
-      const label = fragments[seed % fragments.length];
-      const width = Math.min(state.w - x - 4, label.length * size * .48);
-      if (width > 12) result.push({ x, y, w: width, h: size * 1.05, size, label, seed });
-    }
-    return result;
-  }
-
-  function collide(body, rects, drag) {
-    const rx = 13, ry = 8;
-    for (const o of rects) {
-      if (body.x + rx > o.x && body.x - rx < o.x + o.w && body.y + ry > o.y && body.y - ry < o.y + o.h) {
-        const left = Math.abs(body.x - o.x), right = Math.abs(body.x - o.x - o.w);
-        if (Math.min(left, right) < Math.abs(body.y - o.y)) {
-          body.x = left < right ? o.x - rx : o.x + o.w + rx; body.vx *= -.08;
-        } else {
-          body.y = body.y < o.y ? o.y - ry : o.y + o.h + ry; body.vy *= -.08;
-        }
-        body.vx *= drag; body.vy *= drag;
+  function layout() {
+    s.words=[]; s.walls=[];
+    const [title,paragraphs]=chapters[s.index];
+    word("7."+(s.index+1)+"  "+title,40,103,true);
+    if(!s.index) {
+      paragraph(paragraphs[0],40,140,606);
+      let x=65;
+      for(const [text,tag] of [["∂v/∂t + ",null],["(v·∇)v","n"],[" = −∇p/ρ + ",null],["ν(∇²)v","k"],[" + F",null]]) {
+        const w=word(text,x,224,false,true); w.actor=tag;
+        if(tag) {s[tag]={x:x+w.w/2,y:218};s[tag+"Origin"]={...s[tag]};}
+        x+=w.w;
       }
-    }
-  }
-
-  function updateTravel(dt, now) {
-    const flow = currentAt(state.navier.x, state.navier.y, now);
-    if (state.pointerDown) {
-      const dx = state.pointer.x - state.navier.x, dy = state.pointer.y - state.navier.y;
-      const mag = Math.max(1, Math.hypot(dx, dy)), fm = Math.max(1, Math.hypot(flow.x, flow.y));
-      const withFlow = (dx * flow.x + dy * flow.y) / mag / fm;
-      const response = (state.pageNo === 0 ? 5.8 : state.pageNo === 1 ? 3.7 : 2.6) * (.56 + Math.max(-.25, withFlow) * .45);
-      state.navier.vx += dx * response * dt; state.navier.vy += dy * response * dt;
+      word("∇·v = 0",284,264,false,true);
+      let y=338;
+      paragraphs.slice(1).forEach((p,i)=>{y=paragraph(p,40,y,606,i===1)+64;});
     } else {
-      state.navier.vx += (state.w * .66 - state.navier.x) * .035 * dt;
-      state.navier.vy += (state.h * .58 - state.navier.y) * .025 * dt;
-    }
-    state.navier.vx += flow.x * dt; state.navier.vy += flow.y * dt;
-
-    const separation = distance(state.navier, state.stokes);
-    if (state.stokesAwake && separation > state.w * .29) {
-      const pull = unit(state.stokes.x - state.navier.x, state.stokes.y - state.navier.y);
-      const tension = (separation - state.w * .25) * 5.2;
-      state.navier.vx += pull.x * tension * dt; state.navier.vy += pull.y * tension * dt;
-    }
-
-    integrate(state.navier, dt, state.pageNo === 0 ? .025 : state.pageNo === 1 ? .07 : .12);
-    const obs = obstacles(now); collide(state.navier, obs, .16); contain(state.navier);
-
-    const moved = distance(state.navier, centerOf(sourceNavier));
-    if (!state.stokesAwake && (moved > state.w * .16 || (now - state.born) > 6500)) wakeStokes();
-
-    state.trail.unshift({ x: state.navier.x, y: state.navier.y });
-    if (state.trail.length > 170) state.trail.pop();
-
-    if (state.stokesAwake) {
-      const target = state.trail[Math.min(48 + state.pageNo * 12, state.trail.length - 1)];
-      const sf = currentAt(state.stokes.x, state.stokes.y, now);
-      state.stokes.vx += (target.x - state.stokes.x) * (1.75 - state.pageNo * .27) * dt + sf.x * .22 * dt;
-      state.stokes.vy += (target.y - state.stokes.y) * (1.75 - state.pageNo * .27) * dt + sf.y * .22 * dt;
-      integrate(state.stokes, dt, .16 + state.pageNo * .09); collide(state.stokes, obs, .055); contain(state.stokes);
-    }
-
-    state.journey += dt * (state.pointerDown ? 1.18 : .52);
-    if (state.journey > 13 && state.pageNo === 0) turnPage(1);
-    if (state.journey > 28 && state.pageNo === 1) turnPage(2);
-    if (state.journey > 45 && state.pageNo === 2) beginFinal(now);
-  }
-
-  function turnPage(next) {
-    if (state.turning) return;
-    state.turning = true; page.classList.add("turning"); leaf.classList.remove("turn"); void leaf.offsetWidth; leaf.classList.add("turn");
-    setTimeout(() => {
-      state.pageNo = next; renderPage(next);
-      state.navier.x = state.w * .24; state.navier.y = state.h * .27;
-      state.stokes.x = state.w * .16; state.stokes.y = state.h * .34;
-      state.trail = Array.from({ length: 170 }, () => ({ x: state.navier.x, y: state.navier.y }));
-    }, 610);
-    setTimeout(() => { page.classList.remove("turning"); state.turning = false; }, 1370);
-  }
-
-  function renderPage(index) {
-    const p = pages[index]; folio.textContent = p.folio;
-    const split = Math.ceil(p.paragraphs.length / 2);
-    print.innerHTML = `<h1>${p.title}</h1><div class="columns">${p.paragraphs.map((v,i) => `<p>${v}</p>${i === split - 1 ? '<p>∂<sub>t</sub>v + (v·∇)v = −ρ⁻¹∇p + ν∇²v + F</p>' : ''}`).join("")}</div><footer>Elements of Fluid Dynamics · §7 · continued</footer>`;
-  }
-
-  function beginFinal(now) {
-    state.phase = "final"; state.finalAt = now; state.theta = Math.atan2(state.navier.y - state.h * .46, state.navier.x - state.w * .5);
-    light.classList.add("show"); print.style.opacity = ".34";
-  }
-
-  function updateFinal(dt, now) {
-    const cx = state.w * .5, cy = state.h * .46, elapsed = (now - state.finalAt) / 1000;
-    let impulse = 0;
-    if (state.pointerDown) {
-      const angle = Math.atan2(state.pointer.y - cy, state.pointer.x - cx);
-      let d = angle - state.theta; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
-      impulse = Math.max(0, d) * 1.7;
-    }
-    state.theta += dt * (.58 + impulse);
-    const radius = Math.max(3, Math.min(state.w, state.h) * (.35 - Math.min(.33, elapsed * .021)));
-    state.navier.x = cx + Math.cos(state.theta) * radius; state.navier.y = cy + Math.sin(state.theta) * radius * .7;
-    state.stokes.x = cx + Math.cos(state.theta - .42) * (radius + 7); state.stokes.y = cy + Math.sin(state.theta - .42) * (radius + 7) * .7;
-    state.navier.r = .025; state.stokes.r = -.02;
-    if (elapsed > 11 && !state.released) release();
-  }
-
-  function release() {
-    state.released = true; book.classList.add("release");
-    navierEl.style.transition = "opacity 2.2s ease, filter 2.2s ease";
-    stokesEl.style.transition = "opacity 2.2s ease, filter 2.2s ease";
-    navierEl.style.opacity = "0"; stokesEl.style.opacity = "0";
-    light.style.transition = "opacity 2.8s ease, transform 2.8s ease";
-    light.style.transform = "translate(-50%,-50%) scale(16)";
-    setTimeout(() => { state.phase = "ended"; epilogue.classList.add("show"); }, 3000);
-  }
-
-  function integrate(body, dt, viscosity) {
-    const d = Math.pow(viscosity, dt); body.vx *= d; body.vy *= d;
-    body.x += body.vx * dt; body.y += body.vy * dt;
-    body.r = Math.atan2(body.vy, body.vx) * .018;
-  }
-
-  function contain(body) {
-    body.x = Math.max(13, Math.min(state.w - 13, body.x));
-    body.y = Math.max(36, Math.min(state.h - 18, body.y));
-  }
-
-  function unit(x, y) { const d = Math.hypot(x, y) || 1; return { x: x / d, y: y / d }; }
-  function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
-  function position(el, body) {
-    el.style.left = `${body.x}px`; el.style.top = `${body.y}px`;
-    el.style.transform = `translate(-50%,-50%) rotate(${body.r || 0}rad)`;
-  }
-
-  function draw(now) {
-    ctx.clearRect(0, 0, state.w, state.h);
-    if (state.phase === "still" || state.phase === "notice") return;
-    ctx.save(); ctx.textBaseline = "top";
-    const obs = obstacles(now);
-    for (const o of obs) {
-      const final = state.phase === "final";
-      let x = o.x, y = o.y, size = o.size;
-      if (final) {
-        const elapsed = (now - state.finalAt) / 1000;
-        const dx = x - state.w * .5, dy = y - state.h * .46;
-        const a = elapsed * .16 + (o.seed % 17) * .02, c = Math.cos(a), s = Math.sin(a);
-        x = state.w * .5 + dx * c - dy * s; y = state.h * .46 + dx * s + dy * c;
-        size *= .8 + (o.seed % 9) * .08;
+      // Genuine prose is wrapped as prose; paragraph spacing decreases over the five pages.
+      let y=155;
+      const gap=[64,40,25,16,7][s.index];
+      paragraphs.forEach((p,i)=>{
+        y=paragraph(p,40,y,606,i===2)+gap;
+        if(i===1) {word(s.index===1?"Re = UL/ν":s.index===2?"E(t) = ½ ∫ |v|² dx":"ω = ∇×v",190,y,false,true);y+=32+gap;}
+      });
+      // Bold, vertical section labels are solid ink barriers with a clear detour.
+      const definitions=s.index===1?[[322,345,590]]:s.index===2?[[260,130,410],[465,525,830]]:
+        s.index===3?[[240,155,490],[458,490,815]]:[[235,130,440],[458,475,830]];
+      for(const [x,y1,y2] of definitions) {
+        const label="BOUNDARY";
+        const wall={x,y:y1,w:22,h:y2-y1}; s.walls.push(wall);
+        // Clear a strip before setting the label to prevent unrelated text overprinting.
+        s.words=s.words.filter(w=>!(w.x+w.w>x-5&&w.x<x+27&&w.y>y1-14&&w.y<y2+24));
+        for(let y=y1+18,i=0;y<y2;y+=26,i++) word(label[i%label.length],x,y,true,false,true);
       }
-      ctx.font = `${size}px "Noto Serif Math", "Times New Roman", serif`;
-      ctx.fillStyle = `rgba(38,33,25,${final ? .25 + (o.seed % 5) * .07 : .2 + state.pageNo * .07})`;
-      ctx.fillText(o.label, x, y, o.w);
     }
-    if (state.stokesAwake && state.trail.length > 5) {
-      ctx.beginPath(); ctx.moveTo(state.trail[0].x, state.trail[0].y);
-      state.trail.slice(1, 74).forEach(p => ctx.lineTo(p.x, p.y));
-      ctx.strokeStyle = "rgba(40,34,25,.08)"; ctx.lineWidth = .7; ctx.stroke();
+    s.words=s.words.filter(w=>w.y<875);
+    if(s.index===4) word("Q.E.D.",594,885,true);
+  }
+  function start(index=0) {
+    s.index=index;s.phase=index?"travel":"still";s.time=0;s.awake=!!index;s.down=false;s.lost=0;
+    retry.hidden=true;status.textContent="";layout();
+    if(index){s.n={x:82,y:305};s.k={x:40,y:305};}
+    s.trail=[];s.target={...s.n};
+  }
+  function density(b,dt) {
+    let sum=0;
+    for(const w of s.words) {
+      if(w.actor||w.hard)continue;
+      const nx=clamp(b.x,w.x,w.x+w.w),ny=clamp(b.y,w.y-16,w.y+4);
+      const d=Math.hypot(b.x-nx,b.y-ny);
+      if(d<28) {
+        sum+=(28-d)/28;
+        if(dt) {w.dx=clamp(w.dx+(nx-b.x)*dt*1.8,-3,3);w.dy=clamp(w.dy+(ny-b.y)*dt*1.8,-3,3);}
+      }
+    }
+    return sum;
+  }
+  function move(b,target,dt,speed) {
+    const d=distance(b,target);if(d<.2)return;
+    const step=Math.min(d,speed*dt/(1+density(b,dt)*1.5));
+    let x=b.x+(target.x-b.x)/d*step, y=b.y+(target.y-b.y)/d*step;
+    // Resolve separately so dragging down along a wall slides to its opening.
+    const hit=(xx,yy)=>s.walls.some(w=>xx+32>w.x&&xx-32<w.x+w.w&&yy+10>w.y&&yy-10<w.y+w.h);
+    if(!hit(x,b.y))b.x=x;
+    if(!hit(b.x,y))b.y=y;
+    b.x=clamp(b.x,34,666);b.y=clamp(b.y,125,894);
+  }
+  function turn() {
+    s.phase="turn";s.turn=0;s.down=false;leaf.classList.remove("turn");
+    void leaf.offsetWidth;leaf.classList.add("turn");
+  }
+  function update(dt) {
+    s.time+=dt;
+    for(const w of s.words) {w.dx*=Math.exp(-dt*3);w.dy*=Math.exp(-dt*3);}
+    if(s.phase==="still") {if(s.time>3)s.phase="notice";return;}
+    if(s.phase==="notice") {if(s.time>5.5)s.phase="travel";return;}
+    if(s.phase==="turn") {s.turn+=dt;if(s.turn>1.35)start(s.index+1);return;}
+    if(s.phase==="failed"||s.phase==="end")return;
+    if(s.phase==="vortex") {
+      s.final+=dt;
+      const t=s.final, a=t*(.3+t*.025),r=Math.max(0,1-t/12);
+      for(const [b,origin,lag] of [[s.n,s.fn,0],[s.k,s.fk,.07]]) {
+        const dx=origin.x-350,dy=origin.y-475;
+        b.x=350+(dx*Math.cos(a-lag)-dy*Math.sin(a-lag))*r;
+        b.y=475+(dx*Math.sin(a-lag)+dy*Math.cos(a-lag))*r;
+      }
+      if(t>15){s.phase="end";retry.hidden=false;status.textContent="";}
+      return;
+    }
+    if(s.down)move(s.n,s.target,dt,150);
+    if(!s.awake&&distance(s.n,s.nOrigin)>95)s.awake=true;
+    if(s.awake) {
+      // Arc-length waypoints keep the follower on the player's actual route around walls.
+      const last=s.trail[s.trail.length-1];
+      if(!last||distance(last,s.n)>6)s.trail.push({...s.n});
+      if(distance(s.n,s.k)<60)s.trail=[{...s.n}];
+      while(s.trail.length>1&&distance(s.k,s.trail[0])<10)s.trail.shift();
+      const goal=s.trail[0]||s.n;
+      if(distance(s.k,s.n)>43||s.trail.length>2)move(s.k,goal,dt,128);
+      const d=distance(s.n,s.k);
+      if(d>260)s.lost+=dt;else s.lost=Math.max(0,s.lost-dt*2);
+      status.textContent=d>260?"ストークスが離れています。迎えに戻れます。":"";
+      if(s.lost>7) {s.phase="failed";s.down=false;retry.hidden=false;status.textContent="二人は離れてしまいました。同じページからやり直せます。";}
+      if(s.n.x>=654&&s.k.x>578&&d<125) {
+        if(s.index<4)turn();
+        else {s.phase="vortex";s.final=0;s.fn={...s.n};s.fk={...s.k};s.down=false;}
+      }
+    }
+  }
+  function drawActor(b,text,alpha=1) {
+    font(false,true);ctx.fillStyle="#282117";ctx.globalAlpha=alpha;
+    ctx.fillText(text,b.x-ctx.measureText(text).width/2,b.y+6);
+  }
+  function draw() {
+    ctx.clearRect(0,0,W,H);ctx.save();ctx.fillStyle="#342b20";ctx.globalAlpha=.84;
+    font();ctx.fillText("Elements of Fluid Dynamics",40,48);ctx.fillText(String(193+s.index),626,48);
+    ctx.strokeStyle="#655744";ctx.lineWidth=.65;ctx.beginPath();ctx.moveTo(40,63);ctx.lineTo(660,63);ctx.stroke();
+    if(s.phase==="end") {
+      wordEnd();ctx.restore();return;
+    }
+    const vortex=s.phase==="vortex";
+    for(const w of s.words) {
+      if(w.actor==="n"&&(s.phase!=="still"))continue;
+      if(w.actor==="k"&&s.awake)continue;
+      ctx.save();font(w.bold,w.math);
+      ctx.globalAlpha=.84;
+      let x=w.x+w.dx,y=w.y+w.dy;
+      if(vortex) {
+        const t=s.final,a=t*(.3+t*.025),r=Math.max(.01,1-t/12);
+        ctx.translate(350,475);ctx.rotate(a);ctx.scale(r,r);x-=350;y-=475;
+      }
+      if(w.hard)ctx.font="bold 18px sans-serif";
+      ctx.fillText(w.text,x,y);
+      if(w.bold&&!w.hard){ctx.fillRect(x,y+3,w.w,.5);}
+      ctx.restore();
+    }
+    if(s.phase!=="still") {
+      const pulse=s.phase==="notice"?Math.sin((s.time-3)*Math.PI)*.08:0;
+      drawActor({...s.n,y:s.n.y-pulse*9},"(v·∇)v",.87+pulse);
+    }
+    if(s.awake)drawActor(s.k,"ν(∇²)v",s.phase==="failed"?.22:Math.max(.3,.9-s.lost*.075));
+    ctx.globalAlpha=.55;font();ctx.fillText("§ 7   /   "+(s.index+1),40,920);
+    if(vortex) {
+      const r=35+s.final*s.final*5;
+      const glow=ctx.createRadialGradient(350,475,0,350,475,r);
+      glow.addColorStop(0,"rgba(255,252,231,"+Math.min(1,s.final/7)+")");
+      glow.addColorStop(1,"rgba(255,252,231,0)");
+      ctx.globalAlpha=1;ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
     }
     ctx.restore();
   }
-
-  function frame(now) {
-    const dt = Math.min(.034, (now - state.last) / 1000 || .016); state.last = now;
-    if (state.phase === "travel" && !state.turning) updateTravel(dt, now);
-    if (state.phase === "final") updateFinal(dt, now);
-    if (state.phase !== "ended") {
-      position(navierEl, state.navier);
-      if (state.stokesAwake || state.phase === "still") position(stokesEl, state.stokes);
-      draw(now);
-    }
-    requestAnimationFrame(frame);
+  function wordEnd() {
+    ctx.fillStyle="#30291f";font(true);ctx.fillText("7.6  Afterword",40,103);
+    const lines=[
+      "The Navier–Stokes equations describe the motion of fluids.",
+      "They developed from nineteenth-century work by",
+      "Claude-Louis Navier, George Gabriel Stokes and others.",
+      "",
+      "Transport, pressure and viscosity belong to one balance.",
+      "The two terms in this story belong to that equation.",
+      "",
+      "An imagined journey through a real mathematical idea.",
+      "",
+      "The mathematics is real. The journey is fiction."
+    ];
+    font();lines.forEach((line,i)=>ctx.fillText(line,40,180+i*32));
+    ctx.globalAlpha=.55;ctx.fillText("Notes composed for this film; not a facsimile of a paper.",40,860);
   }
-
-  page.addEventListener("pointerdown", startPointer);
-  page.addEventListener("pointermove", e => { if (state.pointerDown) state.pointer = localPoint(e); });
-  page.addEventListener("pointerup", endPointer);
-  page.addEventListener("pointercancel", endPointer);
-  document.querySelector("#retry").addEventListener("click", () => location.reload());
-  addEventListener("resize", resize);
-  resize();
-  requestAnimationFrame(frame);
-  setTimeout(notice, 2100);
+  function resize() {
+    const r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
+    canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);
+    ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);
+  }
+  function target(e) {
+    const r=canvas.getBoundingClientRect();s.target={x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
+  }
+  page.addEventListener("pointerdown",e=>{
+    if(s.phase!=="travel")return;s.down=true;target(e);page.setPointerCapture(e.pointerId);
+  });
+  page.addEventListener("pointermove",e=>{if(s.down)target(e);});
+  for(const event of ["pointerup","pointercancel","lostpointercapture"])page.addEventListener(event,()=>s.down=false);
+  retry.addEventListener("click",()=>start(s.phase==="end"?0:s.index));
+  document.addEventListener("visibilitychange",()=>{s.hidden=document.hidden;s.down=false;});
+  let last=performance.now();
+  function frame(now){const dt=Math.min(.035,(now-last)/1000);last=now;if(!s.hidden){update(dt);draw();}requestAnimationFrame(frame);}
+  addEventListener("resize",resize);
+  document.fonts.ready.then(()=>{resize();start();requestAnimationFrame(frame);});
 })();
-
