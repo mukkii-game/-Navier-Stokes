@@ -3,7 +3,7 @@
   const canvas = document.querySelector("#field"), ctx = canvas.getContext("2d");
   const page = document.querySelector("#page"), leaf = document.querySelector("#leaf");
   const retry = document.querySelector("#retry"), status = document.querySelector("#status");
-  const W = 700, H = 950, SIZE = 18;
+  const W = 700, H = 950, SIZE = 25;
   const FONT = '"EB Garamond", Georgia, serif', MATH = '"Noto Serif Math", serif';
   const chapters = [
     ["Momentum balance", [
@@ -49,89 +49,86 @@
   ];
   const s = { phase:"still", time:0, index:0, words:[], walls:[], down:false,
     target:{x:130,y:210}, n:{x:180,y:210}, k:{x:459,y:210}, awake:false,
-    trail:[], lost:0, turn:0, final:0, hidden:false };
+    trail:[], lost:0, turn:0, final:0, hidden:false, keys:new Set(), spin:0, wake:0 };
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   function font(bold=false, math=false) { ctx.font=(bold?"600 ":"")+SIZE+"px "+(math?MATH:FONT); }
   function word(text,x,y,bold=false,math=false,hard=false) {
     font(bold,math);
-    const w={text,x,y,w:ctx.measureText(text).width,bold,math,hard,dx:0,dy:0};
+    const w={text,x,y,w:ctx.measureText(text).width,bold,math,hard,dx:0,dy:0,glyphs:[]};
+    let offset=0;
+    for(const char of text) {
+      const width=ctx.measureText(char).width;
+      w.glyphs.push({char,x:x+offset,y,width,dx:0,dy:0,vx:0,vy:0});
+      offset+=width;
+    }
     s.words.push(w); return w;
   }
   function paragraph(text,x,y,width,bold=false) {
     let xx=x, yy=y; font(bold); const space=ctx.measureText(" ").width;
     for(const token of text.split(" ")) {
       font(bold); const widthWord=ctx.measureText(token).width;
-      if(xx+widthWord>x+width && xx>x) {xx=x;yy+=24;}
+      if(xx+widthWord>x+width && xx>x) {xx=x;yy+=33;}
       const item=word(token,xx,yy,bold); xx+=item.w+space;
     }
-    return yy+24;
+    return yy+33;
   }
   function layout() {
     s.words=[]; s.walls=[];
     const [title,paragraphs]=chapters[s.index];
     word("7."+(s.index+1)+"  "+title,40,103,true);
     if(!s.index) {
-      paragraph(paragraphs[0],40,140,606);
-      let x=65;
+      paragraph("Let v denote velocity and p pressure.",40,145,606);
+      let x=40;
       for(const [text,tag] of [["∂v/∂t + ",null],["(v·∇)v","n"],[" = −∇p/ρ + ",null],["ν(∇²)v","k"],[" + F",null]]) {
         const w=word(text,x,224,false,true); w.actor=tag;
         if(tag) {s[tag]={x:x+w.w/2,y:218};s[tag+"Origin"]={...s[tag]};}
         x+=w.w;
       }
       word("∇·v = 0",284,264,false,true);
-      let y=338;
-      paragraphs.slice(1).forEach((p,i)=>{y=paragraph(p,40,y,606,i===1)+64;});
+      paragraph("Conservation of momentum governs the motion of a fluid.",40,350,245);
+      paragraph("Viscous diffusion smooths differences in velocity.",402,540,240);
+      paragraph("The initial data specify the velocity field.",40,740,290);
     } else {
-      // Genuine prose is wrapped as prose; paragraph spacing decreases over the five pages.
-      let y=155;
-      const gap=[64,40,25,16,7][s.index];
-      paragraphs.forEach((p,i)=>{
-        y=paragraph(p,40,y,606,i===2)+gap;
-        if(i===1) {word(s.index===1?"Re = UL/ν":s.index===2?"E(t) = ½ ∫ |v|² dx":"ω = ∇×v",190,y,false,true);y+=32+gap;}
-      });
-      // Bold, vertical section labels are solid ink barriers with a clear detour.
-      const definitions=s.index===1?[[322,345,590]]:s.index===2?[[260,130,410],[465,525,830]]:
-        s.index===3?[[240,155,490],[458,490,815]]:[[235,130,440],[458,475,830]];
-      for(const [x,y1,y2] of definitions) {
-        const label="BOUNDARY";
-        const wall={x,y:y1,w:22,h:y2-y1}; s.walls.push(wall);
-        // Clear a strip before setting the label to prevent unrelated text overprinting.
-        s.words=s.words.filter(w=>!(w.x+w.w>x-5&&w.x<x+27&&w.y>y1-14&&w.y<y2+24));
-        for(let y=y1+18,i=0;y<y2;y+=26,i++) word(label[i%label.length],x,y,true,false,true);
-      }
+      // Alternating islands of type leave generous, connected corridors.
+      const blocks=[[40,155,260],[393,340,250],[40,555,265],[385,748,265]];
+      blocks.forEach(([x,y,width],i)=>paragraph(paragraphs[i].split(" ").slice(0,15+s.index*2).join(" "),x,y,width,i===2));
+      word(s.index===1?"Re = UL/ν":"ω = ∇×v",390,670,false,true);
+      if(s.index>=3)paragraph("Transport and diffusion",265,450,180);
     }
     s.words=s.words.filter(w=>w.y<875);
-    if(s.index===4) word("Q.E.D.",594,885,true);
+    if(s.index===4) word("Q.E.D.",560,885,true);
   }
   function start(index=0) {
-    s.index=index;s.phase=index?"travel":"still";s.time=0;s.awake=!!index;s.down=false;s.lost=0;
+    s.index=index;s.phase=index?"travel":"still";s.time=0;s.awake=!!index;s.down=false;s.lost=0;s.spin=0;s.wake=0;s.keys.clear();
     retry.hidden=true;status.textContent="";layout();
     if(index){s.n={x:82,y:305};s.k={x:40,y:305};}
     s.trail=[];s.target={...s.n};
   }
-  function density(b,dt) {
+  function density(b,dt,ux=0,uy=0) {
     let sum=0;
     for(const w of s.words) {
-      if(w.actor||w.hard)continue;
-      const nx=clamp(b.x,w.x,w.x+w.w),ny=clamp(b.y,w.y-16,w.y+4);
-      const d=Math.hypot(b.x-nx,b.y-ny);
-      if(d<28) {
-        sum+=(28-d)/28;
-        if(dt) {w.dx=clamp(w.dx+(nx-b.x)*dt*1.8,-3,3);w.dy=clamp(w.dy+(ny-b.y)*dt*1.8,-3,3);}
+      if(w.actor)continue;
+      for(const g of w.glyphs) {
+        if(g.char===" ")continue;
+        const gx=g.x+g.dx+g.width/2,gy=g.y+g.dy-8;
+        if(Math.abs(gx-b.x)<48&&Math.abs(gy-b.y)<22) {
+          sum++;
+          if(dt){g.vx+=ux*dt*620;g.vy+=uy*dt*620;}
+        }
       }
     }
     return sum;
   }
   function move(b,target,dt,speed) {
     const d=distance(b,target);if(d<.2)return;
-    const step=Math.min(d,speed*dt/(1+density(b,dt)*1.5));
+    const step=Math.min(d,speed*dt*(density(b,dt,(target.x-b.x)/d,(target.y-b.y)/d)>0?2/3:1));
     let x=b.x+(target.x-b.x)/d*step, y=b.y+(target.y-b.y)/d*step;
     // Resolve separately so dragging down along a wall slides to its opening.
-    const hit=(xx,yy)=>s.walls.some(w=>xx+32>w.x&&xx-32<w.x+w.w&&yy+10>w.y&&yy-10<w.y+w.h);
+    const hit=()=>false;
     if(!hit(x,b.y))b.x=x;
     if(!hit(b.x,y))b.y=y;
-    b.x=clamp(b.x,34,666);b.y=clamp(b.y,125,894);
+    b.x=clamp(b.x,48,652);b.y=clamp(b.y,125,894);
   }
   function turn() {
     s.phase="turn";s.turn=0;s.down=false;leaf.classList.remove("turn");
@@ -139,7 +136,19 @@
   }
   function update(dt) {
     s.time+=dt;
-    for(const w of s.words) {w.dx*=Math.exp(-dt*3);w.dy*=Math.exp(-dt*3);}
+    for(const w of s.words) for(const g of w.glyphs) {
+      const lastPage=s.index===4&&s.phase==="travel";
+      if(lastPage&&s.spin>.1){
+        const dx=g.x+g.dx-350,dy=g.y+g.dy-475;
+        g.vx+=(-dy*.1-dx*.013)*s.spin*dt;
+        g.vy+=(dx*.1-dy*.013)*s.spin*dt;
+      }
+      const restore=lastPage?.06:2.4;
+      g.vx-=g.dx*restore*dt;g.vy-=g.dy*restore*dt;
+      const drag=Math.exp(-dt*(lastPage?.7:4));
+      g.vx*=drag;g.vy*=drag;g.dx+=g.vx*dt;g.dy+=g.vy*dt;
+      g.dx=clamp(g.dx,20-g.x,670-g.x-g.width);g.dy=clamp(g.dy,130-g.y,890-g.y);
+    }
     if(s.phase==="still") {if(s.time>3)s.phase="notice";return;}
     if(s.phase==="notice") {if(s.time>5.5)s.phase="travel";return;}
     if(s.phase==="turn") {s.turn+=dt;if(s.turn>1.35)start(s.index+1);return;}
@@ -155,8 +164,18 @@
       if(t>15){s.phase="end";retry.hidden=false;status.textContent="";}
       return;
     }
-    if(s.down)move(s.n,s.target,dt,150);
-    if(!s.awake&&distance(s.n,s.nOrigin)>95)s.awake=true;
+    const before={...s.n};
+    const kx=Number(s.keys.has("ArrowRight")||s.keys.has("d"))-Number(s.keys.has("ArrowLeft")||s.keys.has("a"));
+    const ky=Number(s.keys.has("ArrowDown")||s.keys.has("s"))-Number(s.keys.has("ArrowUp")||s.keys.has("w"));
+    if(kx||ky)move(s.n,{x:s.n.x+kx*150,y:s.n.y+ky*150},dt,205);
+    else if(s.down)move(s.n,s.target,dt,205);
+    if(s.index===4) {
+      const a=Math.atan2(before.y-475,before.x-350),b=Math.atan2(s.n.y-475,s.n.x-350);
+      const delta=Math.atan2(Math.sin(b-a),Math.cos(b-a));
+      if(distance(s.n,{x:350,y:475})>65)s.spin=Math.min(8,s.spin+Math.abs(delta)*1.1);
+      if(s.spin>1.4)s.spin=Math.min(8,s.spin+dt*.16);
+    }
+    if(!s.awake&&s.n.x>580){s.awake=true;s.wake=s.time;}
     if(s.awake) {
       // Arc-length waypoints keep the follower on the player's actual route around walls.
       const last=s.trail[s.trail.length-1];
@@ -164,14 +183,14 @@
       if(distance(s.n,s.k)<60)s.trail=[{...s.n}];
       while(s.trail.length>1&&distance(s.k,s.trail[0])<10)s.trail.shift();
       const goal=s.trail[0]||s.n;
-      if(distance(s.k,s.n)>43||s.trail.length>2)move(s.k,goal,dt,128);
+      if(distance(s.k,s.n)>60||s.trail.length>2)move(s.k,goal,dt,190);
       const d=distance(s.n,s.k);
-      if(d>260)s.lost+=dt;else s.lost=Math.max(0,s.lost-dt*2);
+      if(d>320&&s.time-s.wake>5)s.lost+=dt;else s.lost=Math.max(0,s.lost-dt*2);
       status.textContent=d>260?"ストークスが離れています。迎えに戻れます。":"";
       if(s.lost>7) {s.phase="failed";s.down=false;retry.hidden=false;status.textContent="二人は離れてしまいました。同じページからやり直せます。";}
-      if(s.n.x>=654&&s.k.x>578&&d<125) {
+      if(s.n.x>=642&&s.k.x>560&&d<145) {
         if(s.index<4)turn();
-        else {s.phase="vortex";s.final=0;s.fn={...s.n};s.fk={...s.k};s.down=false;}
+        else if(s.spin>3.5){s.phase="vortex";s.final=0;s.fn={...s.n};s.fk={...s.k};s.down=false;}
       }
     }
   }
@@ -198,17 +217,20 @@
         ctx.translate(350,475);ctx.rotate(a);ctx.scale(r,r);x-=350;y-=475;
       }
       if(w.hard)ctx.font="bold 18px sans-serif";
-      ctx.fillText(w.text,x,y);
-      if(w.bold&&!w.hard){ctx.fillRect(x,y+3,w.w,.5);}
+      if(w.actor)ctx.fillText(w.text,x,y);
+      else for(const g of w.glyphs)ctx.fillText(g.char,x+(g.x-w.x)+g.dx,y+g.dy);
       ctx.restore();
     }
     if(s.phase!=="still") {
       const pulse=s.phase==="notice"?Math.sin((s.time-3)*Math.PI)*.08:0;
       drawActor({...s.n,y:s.n.y-pulse*9},"(v·∇)v",.87+pulse);
     }
-    if(s.awake)drawActor(s.k,"ν(∇²)v",s.phase==="failed"?.22:Math.max(.3,.9-s.lost*.075));
+    if(s.awake)drawActor({...s.k,y:s.k.y-Math.sin(clamp(s.time-s.wake,0,2)*Math.PI)*2},"ν(∇²)v",
+      s.phase==="failed"?.22:Math.max(.3,Math.min(.94,.5+(s.time-s.wake)*.22)-s.lost*.075));
     ctx.globalAlpha=.55;font();ctx.fillText("§ 7   /   "+(s.index+1),40,920);
     if(vortex) {
+      ctx.globalAlpha=Math.min(1,s.final/4);ctx.font="68px "+MATH;
+      ctx.fillStyle="#40372b";ctx.fillText("∞",318,493);
       const r=35+s.final*s.final*5;
       const glow=ctx.createRadialGradient(350,475,0,350,475,r);
       glow.addColorStop(0,"rgba(255,252,231,"+Math.min(1,s.final/7)+")");
@@ -231,8 +253,16 @@
       "",
       "The mathematics is real. The journey is fiction."
     ];
-    font();lines.forEach((line,i)=>ctx.fillText(line,40,180+i*32));
-    ctx.globalAlpha=.55;ctx.fillText("Notes composed for this film; not a facsimile of a paper.",40,860);
+    font();let y=180;
+    for(const line of lines){
+      let row="";
+      for(const token of line.split(" ")){
+        if(ctx.measureText(row+token).width>600){ctx.fillText(row,40,y);y+=33;row="";}
+        row+=token+" ";
+      }
+      ctx.fillText(row,40,y);y+=37;
+    }
+    ctx.globalAlpha=.55;ctx.fillText("An original typographic short film.",40,860);
   }
   function resize() {
     const r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
@@ -247,10 +277,19 @@
   });
   page.addEventListener("pointermove",e=>{if(s.down)target(e);});
   for(const event of ["pointerup","pointercancel","lostpointercapture"])page.addEventListener(event,()=>s.down=false);
+  addEventListener("keydown",e=>{
+    const key=e.key.length===1?e.key.toLowerCase():e.key;
+    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","w","a","s","d"].includes(key)){
+      e.preventDefault();s.keys.add(key);
+    }
+  });
+  addEventListener("keyup",e=>s.keys.delete(e.key.length===1?e.key.toLowerCase():e.key));
+  addEventListener("blur",()=>{s.keys.clear();s.down=false;});
   retry.addEventListener("click",()=>start(s.phase==="end"?0:s.index));
   document.addEventListener("visibilitychange",()=>{s.hidden=document.hidden;s.down=false;});
   let last=performance.now();
   function frame(now){const dt=Math.min(.035,(now-last)/1000);last=now;if(!s.hidden){update(dt);draw();}requestAnimationFrame(frame);}
   addEventListener("resize",resize);
-  document.fonts.ready.then(()=>{resize();start();requestAnimationFrame(frame);});
+  Promise.all([document.fonts.load("25px "+FONT),document.fonts.load("25px "+MATH)])
+    .catch(()=>{}).then(()=>{resize();start();requestAnimationFrame(frame);});
 })();

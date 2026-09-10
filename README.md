@@ -1,13 +1,15 @@
 # ∂v/∂t
 
-A five-page interactive typographic film. Drag the convection term (v·∇)v to the right; the viscous term ν(∇²)v follows its path. Both must reach the right margin to turn a page.
+Five pages of an interactive typographic film.
 
-All prose is set at the same logical size. Printed words resist motion according to local density and shift by at most three logical pixels when pushed. Blank space is easier to cross. Bold vertical boundary labels are solid obstacles.
+Hold a pointer to move continuously toward it, or use arrow keys / WASD. Movement never teleports. Clear space is full speed; touching print reduces speed to two thirds. Every printed character is an individual lightweight particle. Text islands form broad corridors but can all be pushed through.
 
-Separation beyond 260 logical units fades Stokes; returning within seven seconds prevents failure. The retry symbol restarts the current page. Only the fifth right margin triggers the vortex and light ending.
+Navier wakes first. Stokes wakes only near the first page's right margin, with an ink-darkening transition. Both must reach the right margin to turn the page.
 
-The original photographic book background is retained. The typesetting is clipped to a safe rectangle within its right-hand paper leaf. The English prose is original educational writing, not a facsimile or a claimed quotation from a published paper.
+On the final page, pushed characters retain inertia. Circling Navier around the page centre builds angular motion that spreads and accelerates. After building rotation, bring both characters to the right margin to enter the infinity ending. The afterword is drawn directly on the same paper canvas.
 
-The equation assumes constant density, an incompressible Newtonian fluid and force per unit mass. Motion and crowd resistance are artistic mechanics, not a numerical Navier–Stokes solver.
+Body and character type increased from 18 to 25 logical pixels. Existing book artwork retained. Fonts are explicitly loaded before canvas layout.
 
-Validation: JavaScript syntax plus headless logic checks of all five page gates, text bounds, sustained-separation failure, solid-wall collision and absence of timed page advancement.
+Validation: JavaScript syntax and logic checks for the two-thirds speed ratio, individual glyph impulses, delayed Stokes awakening and player-rotation-gated finale.
+
+Original educational prose and artistic mechanics; not a numerical fluid simulation or a reproduction of a published paper.
