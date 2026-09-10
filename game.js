@@ -49,7 +49,9 @@
   ];
   const s = { phase:"still", time:0, index:0, words:[], walls:[], down:false,
     target:{x:130,y:210}, n:{x:180,y:210}, k:{x:459,y:210}, awake:false,
-    trail:[], lost:0, turn:0, final:0, hidden:false, keys:new Set(), spin:0, wake:0 };
+    trail:[], lost:0, turn:0, final:0, hidden:false, keys:new Set(), spin:0, wake:0,
+    relation:"quiet", reunionAt:-100, pauseUntil:0, startledUntil:0, returnDistance:0,
+    caption:"", captionAt:-100, reunionSeen:false };
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   function font(bold=false, math=false) { ctx.font=(bold?"600 ":"")+SIZE+"px "+(math?MATH:FONT); }
@@ -103,6 +105,8 @@
   }
   function start(index=0) {
     s.index=index;s.phase=index?"travel":"still";s.time=0;s.awake=!!index;s.down=false;s.lost=0;s.spin=0;s.wake=0;s.keys.clear();
+    s.relation="quiet";s.reunionAt=-100;s.pauseUntil=0;s.startledUntil=0;s.returnDistance=0;s.caption="";s.captionAt=-100;
+    if(index===0)s.reunionSeen=false;
     retry.hidden=true;status.textContent="";layout();
     if(index){s.n={x:235,y:290};s.k={x:83,y:290};}
     s.particles=s.words.filter(w=>!w.actor).flatMap(w=>w.glyphs.filter(g=>g.char!==" "));
@@ -187,6 +191,26 @@
     s.phase="turn";s.turn=0;s.down=false;leaf.classList.remove("turn");
     void leaf.offsetWidth;leaf.classList.add("turn");
   }
+  function say(text) {
+    s.caption=text;s.captionAt=s.time;status.textContent=text;
+  }
+  function relationship(before,dt) {
+    if(!s.awake||s.phase!=="travel")return;
+    const d=distance(s.n,s.k);
+    if(s.relation==="quiet"&&!s.reunionSeen&&s.time-s.wake>1&&d>195){
+      s.relation="apart";s.startledUntil=s.time+1.5;
+      // The follower notices the separation and hesitates once.
+      move(s.k,{x:s.k.x-6,y:s.k.y},dt,38);
+    }
+    if(s.relation==="apart"){
+      s.returnDistance+=Math.max(0,distance(before,s.k)-d);
+      if(s.returnDistance>14&&d<180){
+        s.relation="together";s.reunionSeen=true;s.reunionAt=s.time;
+        s.pauseUntil=s.time+.65;s.lost=0;s.trail=[{...s.n}];
+        say("待っててくれた。");
+      }
+    }
+  }
   function update(dt) {
     s.time+=dt;
     const saved=snapshot();
@@ -208,6 +232,7 @@
     if(s.phase==="notice") {if(s.time>5.5)s.phase="travel";return;}
     if(s.phase==="turn") {s.turn+=dt;if(s.turn>1.35)start(s.index+1);return;}
     if(s.phase==="failed"||s.phase==="end")return;
+    if(s.phase==="travel"&&s.time<s.pauseUntil)return;
     if(s.phase==="vortex") {
       s.final+=dt;
       const t=s.final, a=t*(.3+t*.025),r=Math.max(0,1-t/12);
@@ -238,12 +263,14 @@
       if(distance(s.n,s.k)<60)s.trail=[{...s.n}];
       while(s.trail.length>1&&distance(s.k,s.trail[0])<10)s.trail.shift();
       const goal=s.trail[0]||s.n;
-      if(distance(s.k,s.n)>130||s.trail.length>2)move(s.k,goal,dt,190);
+      const followingDistance=s.relation==="together"?112:130;
+      if(s.time>=s.startledUntil&&(distance(s.k,s.n)>followingDistance||s.trail.length>2))move(s.k,goal,dt,190);
+      relationship(before,dt);
       const d=distance(s.n,s.k);
       if(d>320&&s.time-s.wake>5)s.lost+=dt;else s.lost=Math.max(0,s.lost-dt*2);
       status.textContent=d>260?"ストークスが離れています。迎えに戻れます。":"";
       if(s.lost>7) {s.phase="failed";s.down=false;retry.hidden=false;status.textContent="二人は離れてしまいました。同じページからやり直せます。";}
-      if(s.n.x>=675-actorBox(s.n).w/2&&s.k.x>450&&d<185) {
+      if(s.time>=s.pauseUntil&&s.n.x>=675-actorBox(s.n).w/2&&s.k.x>450&&d<185) {
         if(s.index<4)turn();
         else if(s.spin>3.5){s.phase="vortex";s.final=0;s.fn={...s.n};s.fk={...s.k};s.down=false;}
       }
@@ -251,6 +278,16 @@
   }
   function drawActor(b,text,alpha=1) {
     ctx.save();
+    if(s.phase==="travel"){
+      const reunionAge=s.time-s.reunionAt;
+      const reunion=reunionAge>=0&&reunionAge<4;
+      const nervous=b===s.k&&s.time<s.startledUntil;
+      // Contract inside the collision rectangle; no mirrored or substituted glyphs.
+      const breath=reunion?Math.sin(reunionAge*Math.PI*2)*.006:0;
+      const scale=nervous?.976:1-Math.abs(breath);
+      ctx.translate(b.x,b.y);ctx.scale(scale,scale);ctx.translate(-b.x,-b.y);
+      alpha*=reunion?.94+Math.sin(reunionAge*Math.PI*2)*.06:nervous?.78:1;
+    }
     if(s.phase==="vortex"){
       const t=s.final,r=Math.max(.01,1-t/12);
       ctx.translate(350,475);ctx.rotate(t*(.3+t*.025));ctx.scale(r,r);ctx.translate(-350,-475);
@@ -290,6 +327,12 @@
     if(s.awake)drawActor(s.k,"ν(∇²)v",
       s.phase==="failed"?.22:Math.max(.3,Math.min(.94,.5+(s.time-s.wake)*.22)-s.lost*.075));
     ctx.globalAlpha=.55;font();ctx.fillText("§ 7   /   "+(s.index+1),40,920);
+    const captionAge=s.time-s.captionAt;
+    if(s.caption&&captionAge>=0&&captionAge<4.5&&s.phase==="travel"){
+      ctx.save();ctx.font='22px "Noto Serif JP", serif';ctx.fillStyle="#645849";
+      ctx.globalAlpha=.76*Math.min(1,captionAge/.5,(4.5-captionAge)/.8);
+      ctx.textAlign="right";ctx.fillText(s.caption,654,924);ctx.restore();
+    }
     if(vortex) {
       ctx.globalAlpha=Math.min(1,s.final/4);ctx.font="68px "+MATH;
       ctx.fillStyle="#40372b";ctx.fillText("∞",318,493);
@@ -348,6 +391,7 @@
   let last=performance.now();
   function frame(now){const dt=Math.min(.035,(now-last)/1000);last=now;if(!s.hidden){update(dt);draw();}requestAnimationFrame(frame);}
   addEventListener("resize",resize);
+  document.fonts.load('22px "Noto Serif JP"',"待っててくれた。").catch(()=>{});
   Promise.all([document.fonts.load(SIZE+"px "+FONT),document.fonts.load("600 "+SIZE+"px "+FONT),document.fonts.load(SIZE+"px "+MATH)])
     .catch(()=>{}).then(()=>{resize();start();requestAnimationFrame(frame);});
 })();

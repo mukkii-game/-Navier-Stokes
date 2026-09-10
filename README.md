@@ -1,5 +1,7 @@
 # ∂v/∂t
 
+Relationship prototype: after separation, Stokes hesitates once. If the player brings Navier back toward Stokes, the pair pause for 0.65 seconds, share a subtle ink-opacity rhythm and display “待っててくれた。” in the lower paper margin. This moment occurs once per playthrough. Following alone does not trigger it. Original mathematical glyphs are preserved; expression contracts within collision bounds.
+
 Five-page typographic journey. Mouse/touch moves continuously toward the pointer; keyboard arrows and WASD also work.
 
 Print uses 37.5 logical pixels, 1.5 times the previous version, with reflowed short text islands and a two-line opening equation. Glyphs have individual collision rectangles and a two-pixel typesetting gap.
